@@ -76,6 +76,7 @@ void read_dht_data()                    // dht데이터 읽기 함수
 		digitalWrite (LED_PIN,HIGH) // LED on
 	}
 	else
+		// 그렇지 않으면
 	{
 		digitalWrite (LED_PIN,LOW) // LED off
 	}
