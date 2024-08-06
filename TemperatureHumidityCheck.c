@@ -4,7 +4,8 @@
 #include <stdint.h>           // 정수 자료형 라이브러리
 
 #define MAX_TIMINGS	85        // 최대 신호 추출 개수
-#define DHT_PIN		2	      // GPIO로 사용할 핀 번호
+#define DHT_PIN		2	// GPIO로 사용할 핀 번호
+#define LED_PIN		17	//LED PIN 번호
 
 int data[5] = { 0, 0, 0, 0, 0 };       // 온습도 및 checksum 데이터 저장용 변수 배열
 
@@ -65,6 +66,18 @@ void read_dht_data()                    // dht데이터 읽기 함수
 		printf( "Humidity = %d.%d %% Temperature = %d.%d C\n", data[0], data[1], data[2], data[3]);
 	}else  {
 		printf( "Data not good, skip\n" );      //에러 발생시 Data not good 메시지 출력
+	}
+
+	pinMode (LED_PIN,OUTPUT); // 출력설정
+
+	if ( (j >= 40) && data[0] > 40 && (data[4] == ( (data[0] + data[1] + data[2] + data[3]) & 0xFF) ) )
+		//에러가 없고 특정 온습도 이상이면
+	{
+		digitalWrite (LED_PIN,HIGH) // LED on
+	}
+	else
+	{
+		digitalWrite (LED_PIN,LOW) // LED off
 	}
 }
 
