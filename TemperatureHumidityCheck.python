@@ -6,7 +6,7 @@ from firebase_admin import db  # Realtime Database를 위한 import
 
 cred = credentials.Certificate("./Key/serviceKey.json")
 firebase_admin.initialize_app(cred, {
-    'databaseURL': 'https://your-database-name.firebaseio.com/'  # Firebase Realtime Database URL로 변경
+    'databaseURL': 'https://weather-6a3c7-default-rtdb.firebaseio.com'  # Firebase Realtime Database URL로 변경
 })
 farmId = "UW62BfvIjSLGGlinjkwx"
 max_index = 24  # 가지고 있을 list 최대 갯수
