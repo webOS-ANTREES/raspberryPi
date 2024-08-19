@@ -1,40 +1,42 @@
-import Adafruit_DHT
-import RPi.GPIO as GPIO
+import Adafruit_DHT as dht
 import time
+import firebase_admin
+from firebase_admin import credentials
+from firebase_admin import firestore # For cloud
 
-# DHT11 센서 설정
-DHT_SENSOR = Adafruit_DHT.DHT11
-DHT_PIN = 2  # GPIO 핀 번호 (BCM 기준)
+cred = credentials.Certificate("./Key/serviceKey.json")
+firebase_admin.initialize_app(cred)
+farmId = "UW62BfvIjSLGGlinjkwx"
+db = firestore.client()
+max_index = 24 # 가지고 있을 list 최대 갯수
+time_interval = 10 # 1시간 간격으로 데이터 측정
 
-# LED 핀 설정
-LED_PIN = 17
+def list_update(li, element):
+  global max_index
+  
+  if (len(li) >= 24):
+    li.pop(0)
+  
+  if (len(li) <= 23):
+    li.append(float('%0.2f'%element))
+  
+  return li
 
-# GPIO 설정
-GPIO.setmode(GPIO.BCM)
-GPIO.setup(LED_PIN, GPIO.OUT)
+def upload(h, t):
+  ref = db.collection(u'farmInformation').document(f'{farmId}')
+  ref_data = ref.get().to_dict()
+  update_h_list = list_update(ref_data['humidity'], h)
+  update_t_list = list_update(ref_data['temperature'], t)
+  
+  ref.update({
+    u'humidity' : update_h_list,
+    u'temperature' : update_t_list
+  })
 
-def read_dht_data():
-    # DHT11에서 습도와 온도 데이터를 읽음
-    humidity, temperature = Adafruit_DHT.read(DHT_SENSOR, DHT_PIN)
-    
-    if humidity is not None and temperature is not None:
-        print(f"Humidity = {humidity:.1f}% Temperature = {temperature:.1f}°C")
-        
-        # 조건에 따라 LED를 켜고 끔
-        if humidity > 40:  # 습도가 40% 이상이면
-            GPIO.output(LED_PIN, GPIO.HIGH)  # LED 켜기
-        else:
-            GPIO.output(LED_PIN, GPIO.LOW)  # LED 끄기
-    else:
-        print("Failed to retrieve data from humidity sensor")
-
-try:
-    while True:
-        read_dht_data()  # 온도 및 습도 데이터 읽기
-        time.sleep(2)    # 2초 대기
-
-except KeyboardInterrupt:
-    print("Program stopped")
-
-finally:
-    GPIO.cleanup()  # GPIO 설정 해제
+while True:
+  humidity, temperature = dht.read_retry(dht.DHT22, 4)
+  print("Temp={0:0.1f}*C  Humidity={1:0.1f}%".format(temperature, humidity))
+  print("Firebase Uploading...")
+  upload(humidity, temperature)
+  print("Firebase Upload Complete!")
+  time.sleep(time_interval)
