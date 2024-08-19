@@ -9,6 +9,37 @@
 
 int data[5] = { 0, 0, 0, 0, 0 };       // 온습도 및 checksum 데이터 저장용 변수 배열
 
+void send_data_to_firebase(float temperature, float humidity) {
+    CURL *curl;
+    CURLcode res;
+
+    curl_global_init(CURL_GLOBAL_ALL);
+    curl = curl_easy_init();
+    if(curl) {
+        // Firebase Realtime Database URL과 인증 키 설정
+        const char *url = "https://your-database-name.firebaseio.com/sensorData.json?auth=your-database-secret";
+        
+        // 데이터 포맷 설정 (JSON 형식)
+        char json_data[100];
+        snprintf(json_data, sizeof(json_data), "{\"temperature\": %.1f, \"humidity\": %.1f, \"timestamp\": %ld}", temperature, humidity, time(NULL));
+
+        // HTTP POST 요청 설정
+        curl_easy_setopt(curl, CURLOPT_URL, url);
+        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, json_data);
+        curl_easy_setopt(curl, CURLOPT_POST, 1L);
+
+        // 요청 실행
+        res = curl_easy_perform(curl);
+        if(res != CURLE_OK) {
+            fprintf(stderr, "curl_easy_perform() failed: %s\n", curl_easy_strerror(res));
+        }
+
+        // 정리
+        curl_easy_cleanup(curl);
+    }
+    curl_global_cleanup();
+}
+
 void read_dht_data()                    // dht데이터 읽기 함수
 {
 	uint8_t laststate = HIGH;          // DHT핀의 상태 저장용 변수(현재 신호가 HIGH인지 LOW인지 확인하기 위한 용도)
