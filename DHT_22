@@ -1,0 +1,40 @@
+import serial
+import time
+
+# 시리얼 포트 설정 (포트 번호는 실제 연결된 포트로 변경)
+SERIAL_PORT = 'COM3'  # 예시 포트 번호
+BAUD_RATE = 9600
+
+# 시리얼 포트 열기
+ser = serial.Serial(SERIAL_PORT, BAUD_RATE, timeout=1)
+
+def read_dht_data():
+    # 시리얼 포트에서 데이터를 읽음
+    ser.write(b'read_dht22\n')  # 예시 명령어, 실제 명령어는 다를 수 있음
+    line = ser.readline().decode('utf-8').strip()
+    
+    if line:
+        try:
+            humidity, temperature = map(float, line.split(','))
+            print(f"Humidity = {humidity:.1f}% Temperature = {temperature:.1f}°C")
+            
+            # 조건에 따라 LED를 켜고 끔 (시뮬레이션)
+            if humidity > 40:  # 습도가 40% 이상이면
+                print("LED 켜기")
+            else:
+                print("LED 끄기")
+        except ValueError:
+            print("데이터 변환 오류")
+    else:
+        print("데이터 수신 실패")
+
+try:
+    while True:
+        read_dht_data()  # DHT22 데이터 읽기
+        time.sleep(2)    # 2초 대기
+
+except KeyboardInterrupt:
+    print("Program stopped")
+
+finally:
+    ser.close()  # 시리얼 포트 닫기
