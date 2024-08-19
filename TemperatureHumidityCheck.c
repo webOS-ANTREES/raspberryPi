@@ -63,7 +63,23 @@ void read_dht_data()                    // dht데이터 읽기 함수
      */
 	if ( (j >= 40) && (data[4] == ( (data[0] + data[1] + data[2] + data[3]) & 0xFF) ) )
 	{        //에러가 없으면 습도 및 온도 출력
-		printf( "Humidity = %d.%d %% Temperature = %d.%d C\n", data[0], data[1], data[2], data[3]);
+		float h = (float)((data[0] << 8) + data[1]) /10;
+		if(h > 100)
+		{
+			h = data[0];
+		}
+		float c = (float)(((data[2] & 0x7F) << 8) + data[3]) /10;
+		if(c > 125)
+		{
+			c = data[2];
+		}
+		if(data[2] & 0x80)
+		{
+			c = -c;
+		}
+		
+		float f = c * 1.8f + 32;
+		printf( "Humidity = %.1f %% Temperature = %.1f *C (%1.f *F)\n", h,c,f);
 	}else  {
 		printf( "Data not good, skip\n" );      //에러 발생시 Data not good 메시지 출력
 	}
@@ -73,12 +89,12 @@ void read_dht_data()                    // dht데이터 읽기 함수
 	if ( (j >= 40) && data[0] > 40 && (data[4] == ( (data[0] + data[1] + data[2] + data[3]) & 0xFF) ) )
 		//에러가 없고 특정 온습도 이상이면
 	{
-		digitalWrite (LED_PIN,HIGH) // LED on
+		digitalWrite (LED_PIN,HIGH); // LED on
 	}
 	else
 		// 그렇지 않으면
 	{
-		digitalWrite (LED_PIN,LOW) // LED off
+		digitalWrite (LED_PIN,LOW); // LED off
 	}
 }
 
