@@ -17,7 +17,7 @@ void send_data_to_firebase(float temperature, float humidity) {
     curl = curl_easy_init();
     if(curl) {
         // Firebase Realtime Database URL과 인증 키 설정
-        const char *url = "https://your-database-name.firebaseio.com/sensorData.json?auth=your-database-secret";
+        const char *url = "https://weather-6a3c7-default-rtdb.firebaseio.com/sensorData.json?auth=d7ea2284f7be1dd039488db4b4b339a962dafd19";
         
         // 데이터 포맷 설정 (JSON 형식)
         char json_data[100];
