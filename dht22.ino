@@ -1,22 +1,22 @@
-#include "DHT.h"
+#include <dht.h>
 
 #define DHTPIN 2     // DHT 센서의 데이터 핀을 아두이노의 핀 2에 연결
 #define DHTTYPE DHT22   // DHT22 센서 사용
 
-DHT dht(DHTPIN, DHTTYPE);
+dht DHT;
 
 void setup() {
   Serial.begin(9600);  // 라즈베리파이와의 시리얼 통신 설정
-  dht.begin();
 }
 
 void loop() {
   // DHT 센서로부터 온도와 습도 값을 읽음
-  float humidity = dht.readHumidity();
-  float temperature = dht.readTemperature();
+  int readData = DHT.read22(DHTPIN);  // DHT22 센서에서 데이터를 읽음
+  float humidity = DHT.humidity;
+  float temperature = DHT.temperature;
 
   // 데이터 읽기 실패 시 에러 처리
-  if (isnan(humidity) || isnan(temperature)) {
+  if (readData != DHTLIB_OK) {
     Serial.println("Failed to read from DHT sensor!");
     return;
   }
