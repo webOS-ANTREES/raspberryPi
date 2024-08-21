@@ -1,7 +1,7 @@
 #include <SoftwareSerial.h>
 
 // MH-Z19 시리얼 설정 (RX, TX)
-SoftwareSerial mh_z19(10, 11); // 예: RX=10, TX=11
+SoftwareSerial mh_z19(2, 3); // 예: RX=10, TX=11
 
 void setup() {
   Serial.begin(9600); // 라즈베리파이와의 시리얼 통신 설정
@@ -22,15 +22,15 @@ void loop() {
 int readCO2() {
   byte response[9];  // 응답 데이터 버퍼
 
-  mh_z19.write(0xFF);
-  mh_z19.write(0x01);
-  mh_z19.write(0x86);
-  mh_z19.write(0x00);
-  mh_z19.write(0x00);
-  mh_z19.write(0x00);
-  mh_z19.write(0x00);
-  mh_z19.write(0x00);
-  mh_z19.write(0x79);
+  mh_z19.write((byte)0xFF);
+  mh_z19.write((byte)0x01);
+  mh_z19.write((byte)0x86);
+  mh_z19.write((byte)0x00);
+  mh_z19.write((byte)0x00);
+  mh_z19.write((byte)0x00);
+  mh_z19.write((byte)0x00);
+  mh_z19.write((byte)0x00);
+  mh_z19.write((byte)0x79);
 
   // 센서 응답을 읽음
   mh_z19.readBytes(response, 9);
