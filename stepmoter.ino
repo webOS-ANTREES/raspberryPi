@@ -1,41 +1,139 @@
-#include <Stepper.h>
+#include <ESP8266WiFi.h>
+#include <PubSubClient.h>
 
-// Define Constants
 const int STEPS_PER_REV = 200;
-const int SPEED_CONTROL = A0;
+const int SPEED_CONTROL = A0;  // NodeMCU's A0 pin
 
-// Create an instance of the Stepper class
-Stepper stepper_NEMA17(STEPS_PER_REV, 1, 2, 3, 4);
+// Define GPIO pins for motor control
+const int IN1 = D1;
+const int IN2 = D2;
+const int IN3 = D3;
+const int IN4 = D4;
+
+// Wi-Fi credentials
+const char* ssid = "pi";
+const char* password = "xodn010219";
+
+// MQTT Broker settings
+const char* mqtt_server = "172.20.48.180";  // Replace with your MQTT broker's IP address
+const int mqtt_port = 1883;
+const char* mqtt_topic = "nodemcu/stepper";
+
+WiFiClient espClient;
+PubSubClient client(espClient);
+
+// Define steps for full stepping
+int steps[4][4] = {
+  {1, 0, 0, 1},
+  {1, 0, 1, 0},
+  {0, 1, 1, 0},
+  {0, 1, 0, 1}
+};
+
+// State variable to track motor state
+bool motorActivated = false;
 
 void setup() {
-  Serial.begin(9600);  // 시리얼 통신 시작
+  // Initialize serial communication
+  Serial.begin(115200);
+
+  // Initialize GPIO pins for motor control
+  pinMode(IN1, OUTPUT);
+  pinMode(IN2, OUTPUT);
+  pinMode(IN3, OUTPUT);
+  pinMode(IN4, OUTPUT);
+
+  // Connect to Wi-Fi
+  WiFi.begin(ssid, password);
+  Serial.print("Connecting to Wi-Fi");
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println();
+  Serial.print("Connected to Wi-Fi. IP Address: ");
+  Serial.println(WiFi.localIP());
+
+  // Setup MQTT
+  client.setServer(mqtt_server, mqtt_port);
+  client.setCallback(callback);
+
+  // Connect to MQTT broker
+  connectToMQTT();
 }
 
-void loop() {
-  if (Serial.available() > 0) {
-    String command = Serial.readStringUntil('\n');
-    command.trim(); // 공백 제거
-    
-    if (command == "ROTATE") {
-      // read the sensor value:
-      int sensorReading = analogRead(SPEED_CONTROL);
-      // map it to a range from 0 to 100:
-      int motorSpeed = map(sensorReading, 0, 1023, 0, 100);
-      
-      if (motorSpeed > 0) {
-        stepper_NEMA17.setSpeed(motorSpeed);
-        
-        // Rotate 60 degrees to the left (counterclockwise)
-        stepper_NEMA17.step(33);  // 60도 회전에 필요한 스텝 수: 33 스텝
-        delay(1000);  // Wait for 1 second
+void callback(char* topic, byte* payload, unsigned int length) {
+  Serial.print("Message arrived [");
+  Serial.print(topic);
+  Serial.print("] ");
+  
+  String message;
+  for (int i = 0; i < length; i++) {
+    message += (char)payload[i];
+  }
+  Serial.println(message);
 
-        // Rotate 60 degrees to the right (clockwise)
-        stepper_NEMA17.step(-33);  // 원래 위치로 돌아가기 위해 반대 방향으로 33 스텝
-        delay(1000);  // Wait for 1 second
-        
-        // 완료 후 피드백 전송
-        Serial.println("DONE");
+  // If the received message is "ON", activate the motor
+  if (message == "ON" && !motorActivated) {
+    motorActivated = true;
+    int steps = 330;  // Example: 60 degrees rotation
+    int speed = 50;  // Example speed
+    rotateMotor(steps, speed);
+  }
+  else if (message == "OFF" && motorActivated) {
+    motorActivated = false;
+    int steps = -330;
+    int speed = 50;
+    rotateMotor(steps, speed);
+  }
+}
+
+void rotateMotor(int stepsToMove, int speed) {
+  int stepDelay = map(speed, 0, 100, 2000, 10); // Map speed to delay (higher speed means shorter delay)
+  int stepsLeft = abs(stepsToMove);
+  
+  int direction = stepsToMove > 0 ? 1 : -1;  // Determine direction
+  
+  for (int i = 0; i < stepsLeft; i++) {
+    if (direction > 0) {
+      for (int j = 0; j < 4; j++) {
+        setStep(steps[j]);
+        delayMicroseconds(stepDelay);
+      }
+    } else {
+      for (int j = 3; j >= 0; j--) {
+        setStep(steps[j]);
+        delayMicroseconds(stepDelay);
       }
     }
   }
+}
+
+void connectToMQTT() {
+  while (!client.connected()) {
+    Serial.print("Connecting to MQTT broker...");
+    if (client.connect("NodeMCUClient")) {
+      Serial.println("connected");
+      client.subscribe(mqtt_topic);
+    } else {
+      Serial.print("failed, rc=");
+      Serial.print(client.state());
+      Serial.println(" trying again in 5 seconds");
+      delay(5000);
+    }
+  }
+}
+
+void setStep(int step[4]) {
+  digitalWrite(IN1, step[0]);
+  digitalWrite(IN2, step[1]);
+  digitalWrite(IN3, step[2]);
+  digitalWrite(IN4, step[3]);
+}
+
+void loop() {
+  if (!client.connected()) {
+    connectToMQTT();
+  }
+  client.loop();
 }
