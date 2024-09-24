@@ -1,7 +1,7 @@
 #include <SoftwareSerial.h>
 #include <dht.h>
 #include <Wire.h>
-#include <BH1750FVI.h>
+#include <BH1750.h>
 
 // MH-Z19 시리얼 설정 (RX, TX)
 SoftwareSerial mh_z19(2, 3); // 예: RX=2, TX=3
@@ -10,17 +10,21 @@ SoftwareSerial mh_z19(2, 3); // 예: RX=2, TX=3
 #define DHTPIN 4     // DHT 센서의 데이터 핀을 아두이노의 핀 4에 연결
 dht DHT;
 
-// BH1750FVI 센서 설정
-BH1750FVI::eDeviceMode_t DEVICEMODE = BH1750FVI::k_DevModeContHighRes;
-BH1750FVI LightSensor(DEVICEMODE);
+// BH1750 센서 설정 (ADDR 핀을 GND에 연결하면 주소는 0x23, VCC에 연결하면 주소는 0x5C)
+BH1750 lightMeter;
 
 void setup() {
   // 시리얼 통신 설정
-  Serial.begin(9600);  // 라즈베리파이와의 시리얼 통신 설정
+  Serial.begin(9600);  // PC나 라즈베리파이와의 시리얼 통신 설정
   mh_z19.begin(9600);  // MH-Z19와의 시리얼 통신 설정
-  
-  // BH1750 시작
-  LightSensor.begin();
+
+  // BH1750 초기화 (ADDR 핀이 GND에 연결되어 있어 기본 주소 0x23 사용)
+  Wire.begin();
+  if (lightMeter.begin(BH1750::CONTINUOUS_HIGH_RES_MODE, 0x23)) {
+    Serial.println("BH1750 initialized with address 0x23");
+  } else {
+    Serial.println("Error initializing BH1750");
+  }
 
   Serial.println("Sensors are starting...");
 }
@@ -28,14 +32,14 @@ void setup() {
 void loop() {
   // MH-Z19 센서로부터 CO2 값을 읽음
   int CO2Value = readCO2();
-  
+
   // DHT22 센서로부터 온도와 습도 값을 읽음
   int readData = DHT.read22(DHTPIN);
   float humidity = DHT.humidity;
   float temperature = DHT.temperature;
 
   // BH1750 센서로부터 조도 값을 읽음
-  uint16_t lux = LightSensor.GetLightIntensity();
+  float lux = lightMeter.readLightLevel();
 
   // CO2 값을 시리얼 통신으로 전송
   Serial.print("CO2: ");
