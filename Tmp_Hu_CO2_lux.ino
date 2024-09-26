@@ -10,18 +10,14 @@ SoftwareSerial mh_z19(2, 3); // 예: RX=2, TX=3
 #define DHTPIN 4     // DHT 센서의 데이터 핀을 아두이노의 핀 4에 연결
 dht DHT;
 
-// BH1750FVI 센서 설정 (조도 센서)
+// BH1750 센서 설정
 BH1750FVI::eDeviceMode_t DEVICEMODE = BH1750FVI::k_DevModeContHighRes;
 BH1750FVI LightSensor(DEVICEMODE);
 
 void setup() {
-  // 시리얼 통신 설정
-  Serial.begin(9600);  // 라즈베리파이와의 시리얼 통신 설정
+  Serial.begin(9600);  // 시리얼 통신 설정
   mh_z19.begin(9600);  // MH-Z19와의 시리얼 통신 설정
-  
-  // BH1750 센서 시작
-  Wire.begin();
-  LightSensor.begin();
+  LightSensor.begin(); // BH1750 광센서 시작
   Serial.println("Sensors are starting...");
 }
 
@@ -34,7 +30,7 @@ void loop() {
   float humidity = DHT.humidity;
   float temperature = DHT.temperature;
 
-  // BH1750 센서로부터 조도 값을 읽음
+  // BH1750 센서로부터 빛량 값을 읽음
   uint16_t lux = LightSensor.GetLightIntensity();
 
   // CO2 값을 시리얼 통신으로 전송
@@ -53,7 +49,7 @@ void loop() {
     Serial.println("Failed to read from DHT sensor!");
   }
 
-  // BH1750 조도 값을 시리얼 통신으로 전송
+  // BH1750 데이터 출력
   Serial.print("Light: ");
   Serial.print(lux);
   Serial.println(" lx");
@@ -61,6 +57,7 @@ void loop() {
   delay(2000);  // 2초마다 데이터를 전송
 }
 
+// MH-Z19에서 CO2 값을 읽어오는 함수
 int readCO2() {
   byte response[9];  // 응답 데이터 버퍼
 
