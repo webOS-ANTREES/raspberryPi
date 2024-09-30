@@ -53,14 +53,18 @@ try:
 
             # 데이터 파싱
             try:
-                if "CO2" in receivedData:
-                    # CO2 값 추출
-                    CO2 = float(receivedData.split(": ")[1].replace(" ppm", ""))
-
-                elif "Air Temperature" in receivedData:
-                    # 공기 온도 및 습도 값 추출
-                    Temperature = float(receivedData.split(", ")[0].split(": ")[1].replace("C", ""))
-                    humidity = float(receivedData.split(", ")[1].split(": ")[1].replace("%", ""))
+                if "CO2" in receivedData and "Temperature" in receivedData:
+                    # CO2와 Temperature, Humidity 값 함께 추출
+                    data_parts = receivedData.split(", ")
+                    
+                    # CO2 값 추출 (음수 처리 가능)
+                    CO2 = float(data_parts[0].split(": ")[1].replace(" ppm", ""))
+                    
+                    # 공기 온도 값 추출
+                    Temperature = float(data_parts[1].split(": ")[1].replace("C", ""))
+                    
+                    # 습도 값 추출
+                    humidity = float(data_parts[2].split(": ")[1].replace("%", ""))
 
                 elif "Illuminance" in receivedData:
                     # 조도 값 추출
