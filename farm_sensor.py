@@ -51,23 +51,24 @@ try:
         if "\n" in buffer:  # 개행 문자가 있으면 전체 데이터를 가져옴
             lines = buffer.split("\n")  # 데이터가 여러 줄일 경우 분리
             for line in lines[:-1]:  # 마지막 항목은 다음 데이터가 될 수 있으니 남겨둠
-                print(f"Received from Arduino: {line}")
+                print(f"Received from Arduino: {line}")  # 원시 데이터 확인
 
                 # 데이터 파싱 (예: "CO2: 400 ppm, Air Temperature: 25.00C, Humidity: 45.00%, Illuminance: 300 lx, pH Value: 6.50, Water Temperature: 22.00C")
                 try:
+                    # 데이터가 예상 형식인지 확인
+                    if ":" not in line:
+                        print("Invalid data format")
+                        continue
+                    
                     co2_part, temp_part, hum_part, lux_part, ph_part, water_temp_part = line.split(", ")
 
-                    # 데이터가 잘못된 경우를 방지하기 위한 정리
-                    co2_part = co2_part.strip()
-                    temp_part = temp_part.strip()
-                    hum_part = hum_part.strip()
-                    lux_part = lux_part.strip()
-                    ph_part = ph_part.strip()
-                    water_temp_part = water_temp_part.strip()
+                    # 각 부분을 처리할 때도 ':' 포함 여부를 확인
+                    if ":" in co2_part:
+                        co2_value = int(co2_part.split(": ")[1].replace(" ppm", "").strip())
+                    else:
+                        print("Invalid CO2 data")
+                        continue
 
-                    # CO2 값 추출
-                    co2_value = int(co2_part.split(": ")[1].replace(" ppm", "").strip())
-                    
                     # 공기 온도 값 추출
                     temp_value = float(temp_part.split(": ")[1].replace("C", "").strip())
                     
@@ -98,3 +99,4 @@ except KeyboardInterrupt:
 finally:
     ser.close()  # 시리얼 포트 닫기
     GPIO.cleanup()  # GPIO 리소스 해제
+
