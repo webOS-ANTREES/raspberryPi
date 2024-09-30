@@ -42,38 +42,45 @@ def upload_to_firebase(co2, temperature, humidity, illuminance, phVal, waterTemp
     print("Data uploaded to Firebase")
 
 try:
+    buffer = ""  # 시리얼 데이터를 누적해서 처리할 버퍼
     while True:
         # 아두이노로부터 데이터 수신
-        receivedData = ser.readline().decode('utf-8').rstrip()
-        if receivedData:
-            print(f"Received from Arduino: {receivedData}")
+        receivedData = ser.read(ser.in_waiting or 1).decode('utf-8')  # 가용 데이터 읽기
+        buffer += receivedData
+        
+        if "\n" in buffer:  # 개행 문자가 있으면 전체 데이터를 가져옴
+            lines = buffer.split("\n")  # 데이터가 여러 줄일 경우 분리
+            for line in lines[:-1]:  # 마지막 항목은 다음 데이터가 될 수 있으니 남겨둠
+                print(f"Received from Arduino: {line}")
 
-            # 데이터 파싱 (예: "CO2: 400 ppm, Air Temperature: 25.00C, Humidity: 45.00%, Illuminance: 300 lx, pH Value: 6.50, Water Temperature: 22.00C")
-            try:
-                co2_part, temp_part, hum_part, lux_part, ph_part, water_temp_part = receivedData.split(", ")
+                # 데이터 파싱 (예: "CO2: 400 ppm, Air Temperature: 25.00C, Humidity: 45.00%, Illuminance: 300 lx, pH Value: 6.50, Water Temperature: 22.00C")
+                try:
+                    co2_part, temp_part, hum_part, lux_part, ph_part, water_temp_part = line.split(", ")
 
-                # CO2 값 추출
-                co2_value = int(co2_part.split(": ")[1].replace(" ppm", ""))
-                
-                # 공기 온도 값 추출
-                temp_value = float(temp_part.split(": ")[1].replace("C", ""))
-                
-                # 습도 값 추출
-                hum_value = float(hum_part.split(": ")[1].replace("%", ""))
-                
-                # lux(조도) 값 추출
-                illuminance = int(lux_part.split(": ")[1].replace(" lx", ""))
-                
-                # pH 값 추출
-                phVal = float(ph_part.split(": ")[1])
+                    # CO2 값 추출
+                    co2_value = int(co2_part.split(": ")[1].replace(" ppm", ""))
+                    
+                    # 공기 온도 값 추출
+                    temp_value = float(temp_part.split(": ")[1].replace("C", ""))
+                    
+                    # 습도 값 추출
+                    hum_value = float(hum_part.split(": ")[1].replace("%", ""))
+                    
+                    # lux(조도) 값 추출
+                    illuminance = int(lux_part.split(": ")[1].replace(" lx", ""))
+                    
+                    # pH 값 추출
+                    phVal = float(ph_part.split(": ")[1])
 
-                # 수온 값 추출
-                waterTemp = float(water_temp_part.split(": ")[1].replace("C", ""))
-                
-                # Firebase에 데이터 업로드
-                upload_to_firebase(co2_value, temp_value, hum_value, illuminance, phVal, waterTemp)
-            except Exception as e:
-                print(f"Error parsing data: {e}")
+                    # 수온 값 추출
+                    waterTemp = float(water_temp_part.split(": ")[1].replace("C", ""))
+                    
+                    # Firebase에 데이터 업로드
+                    upload_to_firebase(co2_value, temp_value, hum_value, illuminance, phVal, waterTemp)
+                except Exception as e:
+                    print(f"Error parsing data: {e}")
+            
+            buffer = lines[-1]  # 남아있는 데이터를 다음 데이터로 사용
 
         time.sleep(2)  # 2초마다 데이터 전송
 
