@@ -48,6 +48,14 @@ try:
         if receivedData:
             print(f"Received from Arduino: {receivedData}")
 
+            # 데이터 파싱을 위한 초기 변수 설정
+            CO2 = None
+            Temperature = None
+            humidity = None
+            illuminance = None
+            phVal = None
+            waterTemp = None
+
             # 데이터 파싱
             try:
                 # 예시 데이터 형식: "CO2: 400 ppm, Temperature: 25.00C, Humidity: 45.00%, Illuminance: 300 lx, pH Value: 7.00, Water Temperature: 22.00 C"
@@ -71,10 +79,15 @@ try:
                 # 수온 값 추출
                 waterTemp = float(data_parts[5].split(": ")[1].replace(" C", ""))
 
-                # Firebase에 데이터 업로드
-                upload_to_firebase(CO2, Temperature, humidity, illuminance, phVal, waterTemp)
             except Exception as e:
                 print(f"Error parsing data: {e}")
+                continue  # 파싱 오류 발생 시 다음 루프로 넘어감
+
+            # 모든 데이터가 수신되었을 때만 Firebase에 업로드
+            if CO2 is not None and Temperature is not None and humidity is not None and illuminance is not None and phVal is not None and waterTemp is not None:
+                upload_to_firebase(CO2, Temperature, humidity, illuminance, phVal, waterTemp)
+            else:
+                print("Incomplete data, skipping Firebase upload.")
 
         time.sleep(2)  # 2초마다 데이터 전송
 
