@@ -41,6 +41,9 @@ def upload_to_firebase(CO2, Temperature, humidity, illuminance, phVal, waterTemp
     })
     print("Data uploaded to Firebase")
 
+# 데이터를 저장할 전역 변수 초기화
+CO2, Temperature, humidity, illuminance, phVal, waterTemp = None, None, None, None, None, None
+
 try:
     while True:
         # 아두이노로부터 데이터 수신
@@ -48,46 +51,38 @@ try:
         if receivedData:
             print(f"Received from Arduino: {receivedData}")
 
-            # 데이터 파싱을 위한 초기 변수 설정
-            CO2 = None
-            Temperature = None
-            humidity = None
-            illuminance = None
-            phVal = None
-            waterTemp = None
-
             # 데이터 파싱
             try:
-                # 예시 데이터 형식: "CO2: 400 ppm, Temperature: 25.00C, Humidity: 45.00%, Illuminance: 300.00 lx, pH Value: 7.00, Water Temperature: 22.00 C"
-                data_parts = receivedData.split(", ")
+                if "CO2" in receivedData:
+                    # CO2 값 추출
+                    CO2 = float(receivedData.split(": ")[1].replace(" ppm", ""))
 
-                # CO2 값 추출
-                CO2 = float(data_parts[0].split(": ")[1].replace(" ppm", ""))  # 소수점 허용
+                elif "Air Temperature" in receivedData:
+                    # 공기 온도 및 습도 값 추출
+                    Temperature = float(receivedData.split(", ")[0].split(": ")[1].replace("C", ""))
+                    humidity = float(receivedData.split(", ")[1].split(": ")[1].replace("%", ""))
 
-                # 공기 온도 값 추출
-                Temperature = float(data_parts[1].split(": ")[1].replace("C", ""))
+                elif "Illuminance" in receivedData:
+                    # 조도 값 추출
+                    illuminance = float(receivedData.split(": ")[1].replace(" lx", ""))
 
-                # 습도 값 추출
-                humidity = float(data_parts[2].split(": ")[1].replace("%", ""))
+                elif "pH Value" in receivedData:
+                    # pH 값 추출
+                    phVal = float(receivedData.split(": ")[1])
 
-                # 조도 값 추출
-                illuminance = float(data_parts[3].split(": ")[1].replace(" lx", ""))  # float으로 처리
-
-                # pH 값 추출
-                phVal = float(data_parts[4].split(": ")[1])  # float으로 처리
-
-                # 수온 값 추출
-                waterTemp = float(data_parts[5].split(": ")[1].replace(" C", ""))  # float으로 처리
+                elif "Water Temperature" in receivedData:
+                    # 수온 값 추출
+                    waterTemp = float(receivedData.split(": ")[1].replace(" C", ""))
 
             except Exception as e:
                 print(f"Error parsing data: {e}")
                 continue  # 파싱 오류 발생 시 다음 루프로 넘어감
 
             # 모든 데이터가 수신되었을 때만 Firebase에 업로드
-            if CO2 is not None and Temperature is not None and humidity is not None and illuminance is not None and phVal is not None and waterTemp is not None:
+            if None not in [CO2, Temperature, humidity, illuminance, phVal, waterTemp]:
                 upload_to_firebase(CO2, Temperature, humidity, illuminance, phVal, waterTemp)
-            else:
-                print("Incomplete data, skipping Firebase upload.")
+                # Firebase에 데이터가 업로드되면 변수 초기화
+                CO2, Temperature, humidity, illuminance, phVal, waterTemp = None, None, None, None, None, None
 
         time.sleep(2)  # 2초마다 데이터 전송
 
