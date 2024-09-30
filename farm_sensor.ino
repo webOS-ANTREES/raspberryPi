@@ -1,132 +1,105 @@
-#include <SoftwareSerial.h>
-#include <dht.h>
-#include <Wire.h>
-#include <BH1750FVI.h>
-#include <OneWire.h>
-#include <DallasTemperature.h>
+import adafruit_dht
+import board
+import RPi.GPIO as GPIO
+import time
+import serial
+import firebase_admin
+from firebase_admin import credentials, db
 
-// MH-Z19 시리얼 설정 (RX, TX)
-SoftwareSerial mh_z19(2, 3); // 예: RX=2, TX=3
+# Firebase 인증 및 초기화
+cred = credentials.Certificate("/home/pi/WiringPi/key.json")  # 서비스 계정 키 파일 경로
+firebase_admin.initialize_app(cred, {
+    'databaseURL': 'https://weather-6a3c7-default-rtdb.firebaseio.com/'  # Firebase Realtime Database URL
+})
 
-// DHT22 센서 설정
-#define DHTPIN 4     // DHT 센서의 데이터 핀을 아두이노의 핀 4에 연결
-dht DHT;
+# DHT22 센서 설정
+DHT_SENSOR = adafruit_dht.DHT22(board.D2)  # DHT22 센서를 사용하고 GPIO 2 (BCM) 핀에 연결
 
-// BH1750 광 센서 설정
-BH1750FVI::eDeviceMode_t DEVICEMODE = BH1750FVI::k_DevModeContHighRes;
-BH1750FVI LightSensor(DEVICEMODE);
+# GPIO 설정
+GPIO.setmode(GPIO.BCM)
 
-// Dallas 온도 센서 설정
-#define ONE_WIRE_BUS 5
-OneWire oneWire(ONE_WIRE_BUS);
-DallasTemperature sensors(&oneWire);
-DeviceAddress tempDeviceAddress; // 수온 센서 주소 저장용
+# 시리얼 포트 설정 (예시: /dev/ttyACM0)
+ser = serial.Serial('/dev/ttyACM0', 9600, timeout=1)
+time.sleep(2)  # 포트 안정화 대기
 
-// pH 센서 설정
-#define SensorPin A0
-#define Offset7 0.25  // pH 7.0 보정 오프셋
-#define Offset4 -1.93  // pH 4.0 보정 오프셋 (임의 값으로 설정 후 조정 가능)
-#define samplingInterval 20
-#define printInterval 800
-#define ArrayLenth 40
+# Firebase에 데이터를 업로드하는 함수
+def upload_to_firebase(co2, temperature, humidity, illuminance, phVal, waterTemp):
+    # 날짜별로 경로 설정
+    date_path = time.strftime('%Y-%m-%d')  # 예: "2023-08-21"
+    time_path = time.strftime('%H-%M-%S')
+    ref = db.reference(f'sensorData/{date_path}/{time_path}')
 
-int pHArray[ArrayLenth];
-int pHArrayIndex = 0;
-float voltage, phVal, waterTemp, illuminance;
+    # 데이터 업로드
+    ref.set({
+        'co2': co2,
+        'temperature': temperature,
+        'humidity': humidity,
+        'illuminance': illuminance,   # lux 값을 illuminance로 업로드
+        'phVal': phVal,               # pH 값을 phVal로 업로드
+        'waterTemp': waterTemp,       # 수온 값을 waterTemp로 업로드
+        'timestamp': time.strftime('%Y-%m-%d %H:%M:%S')
+    })
+    print("Data uploaded to Firebase")
 
-void setup() {
-  Serial.begin(9600);  // 시리얼 통신 설정
-  mh_z19.begin(9600);  // MH-Z19와의 시리얼 통신 설정
-  LightSensor.begin(); // BH1750 광센서 시작
+try:
+    buffer = ""  # 시리얼 데이터를 누적해서 처리할 버퍼
+    while True:
+        # 아두이노로부터 데이터 수신
+        receivedData = ser.read(ser.in_waiting or 1).decode('utf-8').rstrip()
+        buffer += receivedData
+        
+        if "\n" in buffer:  # 개행 문자가 있으면 전체 데이터를 가져옴
+            lines = buffer.split("\n")  # 데이터가 여러 줄일 경우 분리
+            for line in lines[:-1]:  # 마지막 항목은 다음 데이터가 될 수 있으니 남겨둠
+                print(f"Received from Arduino: {line}")
 
-  sensors.begin(); // 수온 센서 시작
+                # 'sensorData: '로 시작하는지 확인 후 파싱
+                if line.startswith("sensorData: "):
+                    sensorData = line[len("sensorData: "):]  # 'sensorData: ' 부분을 제외한 나머지 추출
+                    print(f"Parsed sensorData: {sensorData}")
 
-  // 온도 센서 연결 확인
-  if (!sensors.getAddress(tempDeviceAddress, 0)) {
-    Serial.println("Unable to find temperature sensor address");
-    while (true); // 센서 주소를 찾지 못하면 멈춤
-  }
+                    # 데이터 파싱 (예: "CO2: 400 ppm, Air Temperature: 25.00C, Humidity: 45.00%, Illuminance: 300 lx, pH Value: 6.50, Water Temperature: 22.00C")
+                    try:
+                        co2_part, temp_part, hum_part, lux_part, ph_part, water_temp_part = sensorData.split(", ")
 
-  Serial.println("Sensors are starting...");
-}
+                        # 데이터가 잘못된 경우를 방지하기 위한 정리
+                        co2_part = co2_part.strip()
+                        temp_part = temp_part.strip()
+                        hum_part = hum_part.strip()
+                        lux_part = lux_part.strip()
+                        ph_part = ph_part.strip()
+                        water_temp_part = water_temp_part.strip()
 
-void loop() {
-  // MH-Z19 센서로부터 CO2 값을 읽음
-  int CO2Value = readCO2();
-  
-  // DHT22 센서로부터 온도와 습도 값을 읽음
-  int readData = DHT.read22(DHTPIN);
-  float humidity = DHT.humidity;
-  float airTemp = DHT.temperature;
+                        # CO2 값 추출
+                        co2_value = int(co2_part.split(": ")[1].replace(" ppm", "").strip())
+                        
+                        # 공기 온도 값 추출
+                        temp_value = float(temp_part.split(": ")[1].replace("C", "").strip())
+                        
+                        # 습도 값 추출
+                        hum_value = float(hum_part.split(": ")[1].replace("%", "").strip())
+                        
+                        # lux(조도) 값 추출
+                        illuminance = int(lux_part.split(": ")[1].replace(" lx", "").strip())
+                        
+                        # pH 값 추출
+                        phVal = float(ph_part.split(": ")[1].strip())
 
-  // BH1750 센서로부터 조도 값을 읽음
-  illuminance = LightSensor.GetLightIntensity();
+                        # 수온 값 추출
+                        waterTemp = float(water_temp_part.split(": ")[1].replace("C", "").strip())
+                        
+                        # Firebase에 데이터 업로드
+                        upload_to_firebase(co2_value, temp_value, hum_value, illuminance, phVal, waterTemp)
+                    except Exception as e:
+                        print(f"Error parsing data: {e}")
+            
+            buffer = lines[-1]  # 남아있는 데이터를 다음 데이터로 사용
 
-  // pH 값 측정
-  static unsigned long samplingTime = millis();
-  if (millis() - samplingTime > samplingInterval) {
-    pHArray[pHArrayIndex++] = analogRead(SensorPin);
-    if (pHArrayIndex == ArrayLenth) pHArrayIndex = 0;
-    
-    voltage = averageArray(pHArray, ArrayLenth) * 5.0 / 1024;
-    phVal = (voltage >= 1.75) ? 3.5 * voltage + Offset7 : 3.5 * voltage + Offset4;
-    samplingTime = millis();
-  }
+        time.sleep(2)  # 2초마다 데이터 전송
 
-  // Dallas 온도 센서로부터 수온 값을 읽음
-  sensors.requestTemperatures();
-  waterTemp = sensors.getTempCByIndex(0);
+except KeyboardInterrupt:
+    print("Program interrupted")
 
-  // 데이터를 패키징하여 라즈베리 파이로 전송
-  if (readData == DHTLIB_OK) {
-    // 센서 데이터를 패키징
-    String sensorData = "CO2: " + String(CO2Value) + " ppm, ";
-    sensorData += "Air Temperature: " + String(airTemp) + "C, ";
-    sensorData += "Humidity: " + String(humidity) + "%, ";
-    sensorData += "Illuminance: " + String(illuminance) + " lx, ";
-    sensorData += "pH Value: " + String(phVal, 2) + ", ";
-    sensorData += "Water Temperature: " + String(waterTemp) + "C";
-    
-    // 패키징된 데이터를 시리얼로 출력
-    Serial.println(sensorData);  // 라즈베리 파이로 전송
-  } else {
-    Serial.println("Failed to read from DHT sensor!");
-  }
-
-  delay(2000);  // 2초마다 데이터 전송
-}
-
-// MH-Z19에서 CO2 값을 읽어오는 함수
-int readCO2() {
-  byte response[9];  // 응답 데이터 버퍼
-
-  mh_z19.write((byte)0xFF);
-  mh_z19.write((byte)0x01);
-  mh_z19.write((byte)0x86);
-  mh_z19.write((byte)0x00);
-  mh_z19.write((byte)0x00);
-  mh_z19.write((byte)0x00);
-  mh_z19.write((byte)0x00);
-  mh_z19.write((byte)0x00);
-  mh_z19.write((byte)0x79);
-
-  // 센서 응답을 읽음
-  mh_z19.readBytes(response, 9);
-
-  if (response[0] == 0xFF && response[1] == 0x86) {
-    int CO2 = response[2] * 256 + response[3];
-    return CO2;
-  } else {
-    return -1; // 에러 발생 시 -1 리턴
-  }
-}
-
-// 배열의 평균을 계산하는 함수
-double averageArray(int* arr, int number) {
-  int max, min;
-  long amount = 0;
-  for (int i = 0; i < number; i++) {
-    amount += arr[i];
-  }
-  return (double)amount / number;
-}
+finally:
+    ser.close()  # 시리얼 포트 닫기
+    GPIO.cleanup()  # GPIO 리소스 해제
