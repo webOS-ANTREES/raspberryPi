@@ -20,7 +20,7 @@ ser = serial.Serial('/dev/ttyACM0', 9600, timeout=1)
 time.sleep(2)  # 포트 안정화 대기
 
 # Firebase에 데이터를 업로드하는 함수
-def upload_to_firebase(co2, temperature, humidity, lux, ph_val, water_temp):
+def upload_to_firebase(co2, temperature, humidity, illuminance, phVal, waterTemp):
     # 날짜별로 경로 설정
     date_path = time.strftime('%Y-%m-%d')  # 예: "2023-08-21"
     time_path = time.strftime('%H-%M-%S')
@@ -31,9 +31,9 @@ def upload_to_firebase(co2, temperature, humidity, lux, ph_val, water_temp):
         'co2': co2,
         'temperature': temperature,
         'humidity': humidity,
-        'lux': lux,
-        'pH': ph_val,
-        'water_temperature': water_temp,
+        'illuminance': illuminance,
+        'pH': phVal,
+        'waterTemperature': waterTemp,
         'timestamp': time.strftime('%Y-%m-%d %H:%M:%S')
     })
     print("Data uploaded to Firebase")
@@ -47,7 +47,7 @@ try:
 
             # 데이터 파싱
             try:
-                co2_part, temp_part, hum_part, lux_part, ph_part, water_temp_part = receivedData.split(", ")
+                co2_part, temp_part, hum_part, illuminance_part, ph_part, waterTemp_part = receivedData.split(", ")
                 
                 # CO2 값 추출
                 co2_value = int(co2_part.split(": ")[1])
@@ -59,16 +59,16 @@ try:
                 hum_value = float(hum_part.split(": ")[1])
                 
                 # 조도 값 추출
-                lux_value = float(lux_part.split(": ")[1])
+                illuminance_value = float(illuminance_part.split(": ")[1])
                 
                 # pH 값 추출
-                ph_val = float(ph_part.split(": ")[1])
+                phVal = float(ph_part.split(": ")[1])
                 
                 # 수온 값 추출
-                water_temp_value = float(water_temp_part.split(": ")[1])
+                waterTemp_value = float(waterTemp_part.split(": ")[1])
 
                 # Firebase에 데이터 업로드
-                upload_to_firebase(co2_value, temp_value, hum_value, lux_value, ph_val, water_temp_value)
+                upload_to_firebase(co2_value, temp_value, hum_value, illuminance_value, phVal, waterTemp_value)
             except Exception as e:
                 print(f"Error parsing data: {e}")
 
