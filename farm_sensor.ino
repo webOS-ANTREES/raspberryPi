@@ -77,20 +77,38 @@ void loop() {
   sensors.requestTemperatures();
   waterTemp = sensors.getTempCByIndex(0);
 
-  // 센서 데이터를 패키징하여 파이썬으로 전송
+  // 데이터 시리얼로 출력
+  Serial.print("CO2: ");
+  Serial.print(CO2Value);
+  Serial.print(" ppm, ");
+
+  // DHT22 데이터 출력
   if (readData == DHTLIB_OK) {
-    // 센서 데이터를 패키징
-    String sensorData = "sensorData: CO2: " + String(CO2Value) + " ppm, ";
-    sensorData += "Air Temperature: " + String(airTemp) + "C, ";
-    sensorData += "Humidity: " + String(humidity) + "%, ";
-    sensorData += "Illuminance: " + String(illuminance) + " lx, ";
-    sensorData += "pH Value: " + String(phVal, 2) + ", ";
-    sensorData += "Water Temperature: " + String(waterTemp) + "C";
-    
-    // 패키징된 데이터를 시리얼로 출력하여 파이썬으로 전송
-    Serial.println(sensorData);  // 파이썬에서 수신할 데이터
+    Serial.print("Air Temperature: ");
+    Serial.print(airTemp);
+    Serial.print("C, Humidity: ");
+    Serial.print(humidity);
+    Serial.print("%, ");
   } else {
     Serial.println("Failed to read from DHT sensor!");
+  }
+
+  // BH1750 조도 데이터 출력
+  Serial.print("Illuminance: ");
+  Serial.print(illuminance);
+  Serial.println(" lx");
+
+  // pH 값 출력
+  Serial.print("pH Value: ");
+  Serial.println(phVal, 2);
+
+  // 수온 데이터 출력
+  if (waterTemp != DEVICE_DISCONNECTED_C) {
+    Serial.print("Water Temperature: ");
+    Serial.print(waterTemp);
+    Serial.println(" C");
+  } else {
+    Serial.println("Failed to read water temperature!");
   }
 
   delay(2000);  // 2초마다 데이터 전송
