@@ -1,22 +1,6 @@
-/home/pi/Downloads/rpi_comp_mqtt_v1.py:18: DeprecationWarning: Callback API version 1 is deprecated, update to latest version
-  client = mqtt.Client()
-Traceback (most recent call last):
-  File "/home/pi/Downloads/rpi_comp_mqtt_v1.py", line 19, in <module>
-    client.connect(broker_address)
-  File "/home/pi/.local/lib/python3.11/site-packages/paho/mqtt/client.py", line 1435, in connect
-    return self.reconnect()
-           ^^^^^^^^^^^^^^^^
-  File "/home/pi/.local/lib/python3.11/site-packages/paho/mqtt/client.py", line 1598, in reconnect
-    self._sock = self._create_socket()
-                 ^^^^^^^^^^^^^^^^^^^^^
-  File "/home/pi/.local/lib/python3.11/site-packages/paho/mqtt/client.py", line 4609, in _create_socket
-    sock = self._create_socket_connection()
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/pi/.local/lib/python3.11/site-packages/paho/mqtt/client.py", line 4640, in _create_socket_connection
-    return socket.create_connection(addr, timeout=self._connect_timeout, source_address=source)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/lib/python3.11/socket.py", line 851, in create_connection
-    raise exceptions[0]
-  File "/usr/lib/python3.11/socket.py", line 836, in create_connection
-    sock.connect(sa)
-TimeoutError: timed out
+Received from Arduino: CO2: -1 ppm, Air Temperature: 25.50C, Humidity: 55.80%, Illuminance: 60.00 lx
+Error parsing data: invalid literal for int() with base 10: '60.00'
+Received from Arduino: pH Value: 7.00
+Error parsing data: invalid literal for int() with base 10: '7.00'
+Received from Arduino: Water Temperature: 22.37 C
+Error parsing data: invalid literal for int() with base 10: '22.37 C'
