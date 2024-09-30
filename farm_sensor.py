@@ -32,8 +32,8 @@ def upload_to_firebase(co2, temperature, humidity, illuminance, phVal, waterTemp
         'temperature': temperature,
         'humidity': humidity,
         'illuminance': illuminance,
-        'pH': phVal,
-        'waterTemperature': waterTemp,
+        'pHVal': phVal,
+        'waterTem': waterTemp,
         'timestamp': time.strftime('%Y-%m-%d %H:%M:%S')
     })
     print("Data uploaded to Firebase")
