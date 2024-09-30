@@ -61,22 +61,12 @@ try:
                 # 예시 데이터 형식: "CO2: 400 ppm, Temperature: 25.00C, Humidity: 45.00%, Illuminance: 300 lx, pH Value: 7.00, Water Temperature: 22.00 C"
                 data_parts = receivedData.split(", ")
 
-                # CO2 값 추출
-                CO2 = int(data_parts[0].split(": ")[1].replace(" ppm", ""))
-
-                # 공기 온도 값 추출
+                # 각 데이터를 float으로 변환하여 추출
+                CO2 = float(data_parts[0].split(": ")[1].replace(" ppm", ""))
                 Temperature = float(data_parts[1].split(": ")[1].replace("C", ""))
-
-                # 습도 값 추출
                 humidity = float(data_parts[2].split(": ")[1].replace("%", ""))
-
-                # 조도 값 추출
-                illuminance = int(data_parts[3].split(": ")[1].replace(" lx", ""))
-
-                # pH 값 추출
+                illuminance = float(data_parts[3].split(": ")[1].replace(" lx", ""))
                 phVal = float(data_parts[4].split(": ")[1])
-
-                # 수온 값 추출
                 waterTemp = float(data_parts[5].split(": ")[1].replace(" C", ""))
 
             except Exception as e:
