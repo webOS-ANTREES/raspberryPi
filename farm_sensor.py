@@ -45,7 +45,7 @@ try:
     buffer = ""  # 시리얼 데이터를 누적해서 처리할 버퍼
     while True:
         # 아두이노로부터 데이터 수신
-        receivedData = ser.read(ser.in_waiting or 1).decode('utf-8')  # 가용 데이터 읽기
+        receivedData = ser.read(ser.in_waiting or 1).decode('utf-8').rstrip()
         buffer += receivedData
         
         if "\n" in buffer:  # 개행 문자가 있으면 전체 데이터를 가져옴
@@ -57,23 +57,31 @@ try:
                 try:
                     co2_part, temp_part, hum_part, lux_part, ph_part, water_temp_part = line.split(", ")
 
+                    # 데이터가 잘못된 경우를 방지하기 위한 정리
+                    co2_part = co2_part.strip()
+                    temp_part = temp_part.strip()
+                    hum_part = hum_part.strip()
+                    lux_part = lux_part.strip()
+                    ph_part = ph_part.strip()
+                    water_temp_part = water_temp_part.strip()
+
                     # CO2 값 추출
-                    co2_value = int(co2_part.split(": ")[1].replace(" ppm", ""))
+                    co2_value = int(co2_part.split(": ")[1].replace(" ppm", "").strip())
                     
                     # 공기 온도 값 추출
-                    temp_value = float(temp_part.split(": ")[1].replace("C", ""))
+                    temp_value = float(temp_part.split(": ")[1].replace("C", "").strip())
                     
                     # 습도 값 추출
-                    hum_value = float(hum_part.split(": ")[1].replace("%", ""))
+                    hum_value = float(hum_part.split(": ")[1].replace("%", "").strip())
                     
                     # lux(조도) 값 추출
-                    illuminance = int(lux_part.split(": ")[1].replace(" lx", ""))
+                    illuminance = int(lux_part.split(": ")[1].replace(" lx", "").strip())
                     
                     # pH 값 추출
-                    phVal = float(ph_part.split(": ")[1])
+                    phVal = float(ph_part.split(": ")[1].strip())
 
                     # 수온 값 추출
-                    waterTemp = float(water_temp_part.split(": ")[1].replace("C", ""))
+                    waterTemp = float(water_temp_part.split(": ")[1].replace("C", "").strip())
                     
                     # Firebase에 데이터 업로드
                     upload_to_firebase(co2_value, temp_value, hum_value, illuminance, phVal, waterTemp)
