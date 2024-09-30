@@ -24,22 +24,25 @@ time.sleep(2)  # 포트 안정화 대기
 
 # Firebase에 데이터를 업로드하는 함수
 def upload_to_firebase(CO2, Temperature, humidity, illuminance, phVal, waterTemp):
-    # 날짜별로 경로 설정
-    date_path = time.strftime('%Y-%m-%d')  # 예: "2023-08-21"
-    time_path = time.strftime('%H-%M-%S')
-    ref = db.reference(f'sensorData/{date_path}/{time_path}')
+    try:
+        # 날짜별로 경로 설정
+        date_path = time.strftime('%Y-%m-%d')  # 예: "2023-08-21"
+        time_path = time.strftime('%H-%M-%S')
+        ref = db.reference(f'sensorData/{date_path}/{time_path}')
 
-    # 데이터 업로드
-    ref.push({
-        'CO2': CO2,
-        'Temperature': Temperature,
-        'humidity': humidity,
-        'lux': illuminance,
-        'pH': phVal,
-        'water_temperature': waterTemp,
-        'timestamp': time.strftime('%Y-%m-%d %H:%M:%S')
-    })
-    print("Data uploaded to Firebase")
+        # 데이터 업로드
+        ref.push({
+            'CO2': CO2,
+            'Temperature': Temperature,
+            'humidity': humidity,
+            'lux': illuminance,
+            'pH': phVal,
+            'water_temperature': waterTemp,
+            'timestamp': time.strftime('%Y-%m-%d %H:%M:%S')
+        })
+        print("Data uploaded to Firebase")
+    except Exception as e:
+        print(f"Failed to upload data to Firebase: {e}")
 
 # 데이터를 저장할 전역 변수 초기화
 CO2, Temperature, humidity, illuminance, phVal, waterTemp = None, None, None, None, None, None
