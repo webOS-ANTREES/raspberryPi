@@ -77,39 +77,19 @@ void loop() {
   sensors.requestTemperatures();
   waterTemp = sensors.getTempCByIndex(0);
 
-  // 데이터 시리얼로 출력
+  // 데이터를 시리얼로 출력 (쉼표로 구분)
   Serial.print("CO2: ");
   Serial.print(CO2Value);
-  Serial.print(" ppm, ");
-
-  // DHT22 데이터 출력
-  if (readData == DHTLIB_OK) {
-    Serial.print("Air Temperature: ");
-    Serial.print(airTemp);
-    Serial.print("C, Humidity: ");
-    Serial.print(humidity);
-    Serial.print("%, ");
-  } else {
-    Serial.println("Failed to read from DHT sensor!");
-  }
-
-  // BH1750 조도 데이터 출력
-  Serial.print("Illuminance: ");
+  Serial.print(", Temperature: ");
+  Serial.print(airTemp);
+  Serial.print(", Humidity: ");
+  Serial.print(humidity);
+  Serial.print(", Illuminance: ");
   Serial.print(illuminance);
-  Serial.println(" lx");
-
-  // pH 값 출력
-  Serial.print("pH Value: ");
-  Serial.println(phVal, 2);
-
-  // 수온 데이터 출력
-  if (waterTemp != DEVICE_DISCONNECTED_C) {
-    Serial.print("Water Temperature: ");
-    Serial.print(waterTemp);
-    Serial.println(" C");
-  } else {
-    Serial.println("Failed to read water temperature!");
-  }
+  Serial.print(", pH: ");
+  Serial.print(phVal);
+  Serial.print(", Water Temperature: ");
+  Serial.println(waterTemp);
 
   delay(2000);  // 2초마다 데이터 전송
 }
@@ -141,7 +121,6 @@ int readCO2() {
 
 // 배열의 평균을 계산하는 함수
 double averageArray(int* arr, int number) {
-  int max, min;
   long amount = 0;
   for (int i = 0; i < number; i++) {
     amount += arr[i];
