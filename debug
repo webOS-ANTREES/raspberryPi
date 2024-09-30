@@ -1,6 +1,8 @@
-Received from Arduino: CO2: -1 ppm, Air Temperature: 25.50C, Humidity: 55.80%, Illuminance: 60.00 lx
-Error parsing data: invalid literal for int() with base 10: '60.00'
+Received from Arduino: 6 C
+Error parsing data: list index out of range
+Received from Arduino: CO2: -1 ppm, Air Temperature: 25.90C, Humidity: 57.30%, Illuminance: 60.00 lx
+Error parsing data: list index out of range
 Received from Arduino: pH Value: 7.00
-Error parsing data: invalid literal for int() with base 10: '7.00'
-Received from Arduino: Water Temperature: 22.37 C
-Error parsing data: invalid literal for int() with base 10: '22.37 C'
+Error parsing data: list index out of range
+Received from Arduino: Water Temperature: 22.56 C
+Error parsing data: could not convert string to float: '22.56 C'
