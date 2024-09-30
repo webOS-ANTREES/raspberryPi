@@ -23,7 +23,7 @@ ser = serial.Serial('/dev/ttyACM0', 9600, timeout=1)
 time.sleep(2)  # 포트 안정화 대기
 
 # Firebase에 데이터를 업로드하는 함수
-def upload_to_firebase(co2, temperature, humidity, lux, ph_value, water_temp):
+def upload_to_firebase(co2, temperature, humidity, illuminance, phVal, waterTemp):
     # 날짜별로 경로 설정
     date_path = time.strftime('%Y-%m-%d')  # 예: "2023-08-21"
     time_path = time.strftime('%H-%M-%S')
@@ -34,9 +34,9 @@ def upload_to_firebase(co2, temperature, humidity, lux, ph_value, water_temp):
         'co2': co2,
         'temperature': temperature,
         'humidity': humidity,
-        'lux': lux,
-        'phValue': ph_value,       # pH 값 업로드
-        'waterTemp': water_temp,   # 수온 값 업로드
+        'illuminance': illuminance,   # lux 값을 illuminance로 업로드
+        'phVal': phVal,               # pH 값을 phVal로 업로드
+        'waterTemp': waterTemp,       # 수온 값을 waterTemp로 업로드
         'timestamp': time.strftime('%Y-%m-%d %H:%M:%S')
     })
     print("Data uploaded to Firebase")
@@ -62,16 +62,16 @@ try:
                 hum_value = float(hum_part.split(": ")[1].replace("%", ""))
                 
                 # lux(조도) 값 추출
-                lux_value = int(lux_part.split(": ")[1].replace(" lx", ""))
+                illuminance = int(lux_part.split(": ")[1].replace(" lx", ""))
                 
                 # pH 값 추출
-                ph_value = float(ph_part.split(": ")[1])
+                phVal = float(ph_part.split(": ")[1])
 
                 # 수온 값 추출
-                water_temp_value = float(water_temp_part.split(": ")[1].replace("C", ""))
+                waterTemp = float(water_temp_part.split(": ")[1].replace("C", ""))
                 
                 # Firebase에 데이터 업로드
-                upload_to_firebase(co2_value, temp_value, hum_value, lux_value, ph_value, water_temp_value)
+                upload_to_firebase(co2_value, temp_value, hum_value, illuminance, phVal, waterTemp)
             except Exception as e:
                 print(f"Error parsing data: {e}")
 
