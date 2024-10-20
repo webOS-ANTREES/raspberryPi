@@ -1,152 +1,61 @@
-#include <ESP8266WiFi.h>
-#include <PubSubClient.h>
+// 핀 설정
+const int dirPin = 4;   // DIR 핀 (GPIO 4)
+const int stepPin = 2;  // 스텝 핀 (GPIO 2)
 
+// 한 바퀴당 스텝 수 (NEMA17 모터의 경우 200 스텝)
 const int STEPS_PER_REV = 200;
-const int SPEED_CONTROL = A0;  // NodeMCU's A0 pin
+const float NUM_OF_REVS = 1.4;  // 1.5바퀴
 
-// Define GPIO pins for motor control
-const int IN1 = D1;
-const int IN2 = D2;
-const int IN3 = D3;
-const int IN4 = D4;
+// 한 바퀴당 필요한 스텝 수
+const int totalSteps = STEPS_PER_REV * NUM_OF_REVS;
 
-// Wi-Fi credentials
-const char* ssid = "pi";
-const char* password = "xodn010219";
-
-// MQTT Broker settings
-const char* mqtt_server = "172.20.48.180";
-const int mqtt_port = 1883;
-const char* mqtt_topic = "nodemcu/sky";
-
-WiFiClient espClient;
-PubSubClient client(espClient);
-
-// Define steps for full stepping
-int steps[4][4] = {
-  {1, 0, 0, 1},
-  {1, 0, 1, 0},
-  {0, 1, 1, 0},
-  {0, 1, 0, 1}
-};
-
-// State variable to track motor state
-bool motorActivated = false;
-
-// Function prototypes
-void setStep(int step[4]);  // Declare the setStep function prototype here
-void rotateMotor(int stepsToMove, int speed);
-void connectToMQTT();
-void callback(char* topic, byte* payload, unsigned int length);
+// 모터 속도를 설정 (딜레이 값, 마이크로초)
+const int stepDelay = 1000;  // 모터 속도 설정 (딜레이를 늘림)
 
 void setup() {
-  // Initialize serial communication
+  // 방향 및 스텝 핀을 출력으로 설정
+  pinMode(stepPin, OUTPUT);
+  pinMode(dirPin, OUTPUT);
+  
+  // 시리얼 모니터 설정 (디버깅용)
   Serial.begin(115200);
-
-  // Initialize GPIO pins for motor control
-  pinMode(IN1, OUTPUT);
-  pinMode(IN2, OUTPUT);
-  pinMode(IN3, OUTPUT);
-  pinMode(IN4, OUTPUT);
-
-  // Connect to Wi-Fi
-  WiFi.begin(ssid, password);
-  Serial.print("Connecting to Wi-Fi");
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
-  }
-  Serial.println();
-  Serial.print("Connected to Wi-Fi. IP Address: ");
-  Serial.println(WiFi.localIP());
-
-  // Setup MQTT
-  client.setServer(mqtt_server, mqtt_port);
-  client.setCallback(callback);
-
-  // Connect to MQTT broker
-  connectToMQTT();
-}
-
-void callback(char* topic, byte* payload, unsigned int length) {
-  Serial.print("Message arrived [");
-  Serial.print(topic);
-  Serial.print("] ");
-  
-  String message;
-  for (int i = 0; i < length; i++) {
-    message += (char)payload[i];
-  }
-  Serial.println(message);
-
-  // If the received message is "ON", activate the motor
-  if (message == "ON" && !motorActivated) {
-    motorActivated = true;
-    rotateMotor(330, 50);  // Example: 60 degrees rotation with speed 50
-  }
-  else if (message == "OFF" && motorActivated) {
-    motorActivated = false;
-    rotateMotor(-330, 50);  // Example: reverse rotation
-  }
-}
-
-void rotateMotor(int stepsToMove, int speed) {
-  int stepDelay = map(speed, 0, 100, 2000, 10); // Map speed to delay (higher speed means shorter delay)
-  int stepsLeft = abs(stepsToMove);
-  
-  int direction = stepsToMove > 0 ? 1 : -1;  // Determine direction
-  
-  for (int i = 0; i < stepsLeft; i++) {
-    if (direction > 0) {
-      for (int j = 0; j < 4; j++) {
-        setStep(steps[j]);
-        delayMicroseconds(stepDelay);
-      }
-    } else {
-      for (int j = 3; j >= 0; j--) {
-        setStep(steps[j]);
-        delayMicroseconds(stepDelay);
-      }
-    }
-  }
-}
-
-void setStep(int step[4]) {
-  digitalWrite(IN1, step[0]);
-  digitalWrite(IN2, step[1]);
-  digitalWrite(IN3, step[2]);
-  digitalWrite(IN4, step[3]);
-}
-
-void connectToMQTT() {
-  while (!client.connected()) {
-    Serial.print("Connecting to MQTT broker...");
-    if (client.connect(("NodeMCUClient_" + String(ESP.getChipId())).c_str())) {
-      Serial.println("connected");
-      client.subscribe(mqtt_topic, 1);  // QoS 1
-    } else {
-      Serial.print("failed, rc=");
-      Serial.print(client.state());
-      Serial.println(" trying again in 5 seconds");
-      delay(5000);
-    }
-  }
-}
-
-void checkWiFiAndReconnect() {
-  if (WiFi.status() != WL_CONNECTED) {
-    WiFi.disconnect();
-    WiFi.begin(ssid, password);
-    while (WiFi.status() != WL_CONNECTED) {
-      delay(500);
-    }
-  }
+  Serial.println("시리얼 모니터에서 '1'을 입력하면 시계 방향으로 회전, '0'을 입력하면 반시계 방향으로 회전합니다.");
 }
 
 void loop() {
-  checkWiFiAndReconnect();
-  if (!client.connected()) {
-    connectToMQTT();
+  if (Serial.available() > 0) {
+    char input = Serial.read();  // 시리얼 입력값 읽기
+    
+    if (input == '1') {
+      // '1'이 입력되면 모터를 시계 방향으로 회전
+      Serial.println("모터가 시계 방향으로 1.5바퀴 회전합니다.");
+      digitalWrite(dirPin, LOW); // 시계 방향 회전
+      
+      for (int i = 0; i < totalSteps; i++) {
+        digitalWrite(stepPin, HIGH);
+        delayMicroseconds(stepDelay);
+        digitalWrite(stepPin, LOW);
+        delayMicroseconds(stepDelay);
+      }
+      
+      Serial.println("모터 회전 완료");
+      delay(1000);  // 1초 대기
+    }
+
+    else if (input == '0') {
+      // '0'이 입력되면 모터를 반시계 방향으로 회전
+      Serial.println("모터가 반시계 방향으로 1.5바퀴 회전합니다.");
+      digitalWrite(dirPin, HIGH); // 반시계 방향 회전
+      
+      for (int i = 0; i < totalSteps; i++) {
+        digitalWrite(stepPin, HIGH);
+        delayMicroseconds(stepDelay);
+        digitalWrite(stepPin, LOW);
+        delayMicroseconds(stepDelay);
+      }
+
+      Serial.println("모터 회전 완료");
+      delay(1000);  // 1초 대기
+    }
   }
-  client.loop();
 }
