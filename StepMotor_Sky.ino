@@ -68,14 +68,14 @@ void callback(char* topic, byte* payload, unsigned int length) {
   Serial.println("메시지 도착: " + message);
 
   // "ON" 메시지 수신 시 모터를 시계 방향으로 회전
-  if (message == "ON" && !motorActivated) {
+  if (message == "OFF" && !motorActivated) {
     motorActivated = true;
     stepsLeft = totalSteps;  // 스텝 수 초기화
     rotateMotorAsync(totalSteps, stepDelay);  // 시계 방향 회전
   }
 
   // "OFF" 메시지 수신 시 모터 반대 방향으로 회전
-  else if (message == "OFF" && motorActivated) {
+  else if (message == "ON" && motorActivated) {
     motorActivated = false;
     stepsLeft = totalSteps;
     rotateMotorAsync(-totalSteps, stepDelay);  // 반시계 방향 회전
