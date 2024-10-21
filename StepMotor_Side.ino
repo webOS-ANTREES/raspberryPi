@@ -23,6 +23,7 @@ const char* password = "xodn010219";
 // MQTT Broker settings
 const char* mqtt_server = "192.168.137.147";
 const char* mqtt_topic = "nodemcu/side";
+const char* client_id = "side_1";
 
 // Wi-Fi and MQTT clients
 WiFiClient espClient;
@@ -46,7 +47,7 @@ void setup() {
   pinMode(IN4, OUTPUT);
   
   // 시리얼 통신 시작
-  Serial.begin(115200);
+  Serial.begin(9600);
 
   // Wi-Fi 연결
   WiFi.begin(ssid, password);
@@ -96,7 +97,7 @@ void connectToMQTT() {
   // MQTT 연결 시도, 연결 성공 시 메시지 출력
   if (!client.connected()) {
     Serial.print("MQTT 연결 중...");
-    if (client.connect("ESP8266Client")) {
+    if (client.connect(client_id)) {
       Serial.println("MQTT 연결됨!");
       client.subscribe(mqtt_topic);  // 구독 설정
     } else {
