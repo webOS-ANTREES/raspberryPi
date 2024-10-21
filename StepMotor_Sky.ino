@@ -4,11 +4,13 @@
 // 핀 설정 (DRV8825용)
 const int dirPin = 4;   // DIR 핀 (GPIO 4)
 const int stepPin = 2;  // 스텝 핀 (GPIO 2)
+const int enablePin = 5; // ENABLE 핀 (GPIO5, D1)
 
 // 한 바퀴당 스텝 수 (NEMA17 모터의 경우 200 스텝)
-const int STEPS_PER_REV = 200;
+const float STEPS_PER_REV = 200;
 const float NUM_OF_REVS = 1.4;  // 1.4바퀴
-const int totalSteps = STEPS_PER_REV * NUM_OF_REVS;  // 필요한 총 스텝 수
+// 한 바퀴당 필요한 스텝 수
+const float totalSteps = STEPS_PER_REV * NUM_OF_REVS;
 
 // 모터 속도를 설정 (딜레이 값, 마이크로초)
 const int stepDelay = 1000;  // 모터 속도 설정 (딜레이를 늘림)
@@ -20,7 +22,7 @@ const char* password = "xodn010219";
 // MQTT Broker settings
 const char* mqtt_server = "192.168.137.147";
 const char* mqtt_topic = "nodemcu/sky";
-const char* client_id = "Sky_1";
+const char* client_id = "sky_1";
 
 // Wi-Fi and MQTT clients
 WiFiClient espClient;
@@ -30,7 +32,9 @@ PubSubClient client(espClient);
 bool motorActivated = false;
 int stepsLeft = totalSteps;  // 남은 스텝 수
 unsigned long previousStepTime = 0;  // 이전 스텝을 실행한 시간 기록
-bool lastCommandWasOff = true;  // 초기 상태는 닫힌 상태 (OFF)
+bool mqttConnected = false;  // MQTT 연결 상태 추적
+bool wifiConnected = false;  // Wi-Fi 연결 상태 추적
+bool lastCommandWasOff = false;  // 마지막 명령이 OFF였는지 추적 (시작 시 OFF로 설정)
 
 // Function prototypes
 void rotateMotorAsync(int stepsToMove, int speed);
@@ -41,6 +45,8 @@ void setup() {
   // GPIO 핀 설정
   pinMode(stepPin, OUTPUT);
   pinMode(dirPin, OUTPUT);
+  pinMode(enablePin, OUTPUT);  // ENABLE 핀 설정
+  digitalWrite(enablePin, HIGH); // 기본적으로 모터 비활성화 (HIGH 상태)
 
   // 시리얼 통신 시작
   Serial.begin(9600);
@@ -70,27 +76,28 @@ void callback(char* topic, byte* payload, unsigned int length) {
 
   Serial.println("메시지 도착: " + message);
 
-  // "OFF" 메시지 수신 시 모터를 닫힌 상태(시계 방향)로 회전
-  if (message == "OFF" && !motorActivated && lastCommandWasOff == false) {
+  // ON 메시지를 받으면 모터를 활성화 (ENABLE 핀을 LOW로 설정)
+  if (message == "ON" && !motorActivated && lastCommandWasOff == false) {
     motorActivated = true;
     stepsLeft = totalSteps;  // 스텝 수 초기화
+    digitalWrite(enablePin, LOW); // 모터 활성화
     rotateMotorAsync(totalSteps, stepDelay);  // 시계 방향 회전
     lastCommandWasOff = true;  // 마지막 명령을 OFF로 설정
-    Serial.println("닫힘 상태로 모터 회전");
+    Serial.println("모터 활성화 및 시계 방향 회전 중");
   }
 
-  // "ON" 메시지 수신 시 모터를 열린 상태(반시계 방향)로 회전
-  else if (message == "ON" && motorActivated && lastCommandWasOff == true) {
+  // OFF 메시지를 받으면 모터 동작 후 비활성화 (ENABLE 핀을 HIGH로 설정)
+  else if (message == "OFF" && motorActivated && lastCommandWasOff == true) {
     motorActivated = false;
     stepsLeft = totalSteps;
     rotateMotorAsync(-totalSteps, stepDelay);  // 반시계 방향 회전
     lastCommandWasOff = false;  // 마지막 명령을 ON으로 설정
-    Serial.println("열림 상태로 모터 회전");
+    Serial.println("모터 비활성화 예정, 반시계 방향 회전 중");
   }
 }
 
 void rotateMotorAsync(int stepsToMove, int speed) {
-  int direction = (stepsToMove > 0) ? HIGH : LOW;  // 방향 결정 (시계/반시계)
+  int direction = (stepsToMove > 0) ? LOW : HIGH;  // 방향 결정
   digitalWrite(dirPin, direction);
   stepsLeft = abs(stepsToMove);  // 남은 스텝 수 설정
   previousStepTime = millis();  // 시작 시간 설정
@@ -99,7 +106,7 @@ void rotateMotorAsync(int stepsToMove, int speed) {
 void handleMotor() {
   if (stepsLeft > 0) {
     unsigned long currentTime = millis();
-    if (currentTime - previousStepTime >= stepDelay) {  // 논블로킹 딜레이 처리
+    if (currentTime - previousStepTime >= (stepDelay / 1000)) {  // 논블로킹 딜레이 처리
       previousStepTime = currentTime;
 
       // STEP 핀에 펄스 발생
@@ -108,31 +115,42 @@ void handleMotor() {
       digitalWrite(stepPin, LOW);
 
       stepsLeft--;  // 남은 스텝 수 감소
+
+      // 모터가 OFF 명령을 완료하면 ENABLE 핀을 HIGH로 설정하여 비활성화
+      if (stepsLeft == 0 && !motorActivated) {
+        digitalWrite(enablePin, HIGH);  // 모터 비활성화 (전류 차단)
+        Serial.println("모터 비활성화됨, ENABLE 핀 HIGH");
+      }
     }
   }
 }
 
 void connectToMQTT() {
-  while (!client.connected()) {
-    Serial.print("MQTT 연결 중...");
-    if (client.connect(client_id)) {
-      Serial.println("MQTT 연결됨!");
-      client.subscribe(mqtt_topic);
-    } else {
-      Serial.print("연결 실패, rc=");
-      Serial.print(client.state());
-      delay(5000);  // 연결 재시도
+  if (!mqttConnected) {
+    while (!client.connected()) {
+      Serial.print("MQTT 연결 중...");
+      if (client.connect(client_id)) {
+        Serial.println("MQTT 연결됨!");
+        client.subscribe(mqtt_topic);
+        mqttConnected = true;
+      } else {
+        Serial.print("연결 실패, rc=");
+        Serial.print(client.state());
+        delay(5000);  // 연결 재시도
+      }
     }
   }
 }
 
 void checkWiFiAndReconnect() {
-  if (WiFi.status() != WL_CONNECTED) {
+  if (WiFi.status() != WL_CONNECTED && wifiConnected) {
+    Serial.println("Wi-Fi 연결 끊김, 재연결 중...");
     WiFi.disconnect();
     WiFi.begin(ssid, password);
     while (WiFi.status() != WL_CONNECTED) {
       delay(500);
     }
+    Serial.println("Wi-Fi 재연결 성공");
   }
 }
 
@@ -140,6 +158,7 @@ void loop() {
   checkWiFiAndReconnect();
   
   if (!client.connected()) {
+    mqttConnected = false;  // MQTT 연결이 끊겼다고 설정
     connectToMQTT();
   }
 
