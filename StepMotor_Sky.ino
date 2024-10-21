@@ -29,6 +29,8 @@ PubSubClient client(espClient);
 bool motorActivated = false;
 int stepsLeft = totalSteps;  // 남은 스텝 수
 unsigned long previousStepTime = 0;  // 이전 스텝을 실행한 시간 기록
+bool mqttConnected = false;  // MQTT 연결 상태 추적
+bool wifiConnected = false;  // Wi-Fi 연결 상태 추적
 
 // Function prototypes
 void rotateMotorAsync(int stepsToMove, int speed);
@@ -50,6 +52,7 @@ void setup() {
     Serial.print(".");
   }
   Serial.println("Wi-Fi 연결됨!");
+  wifiConnected = true;
 
   // MQTT 설정
   client.setServer(mqtt_server, 1883);
@@ -106,26 +109,31 @@ void handleMotor() {
 }
 
 void connectToMQTT() {
-  while (!client.connected()) {
-    Serial.print("MQTT 연결 중...");
-    if (client.connect("ESP8266Client")) {
-      Serial.println("MQTT 연결됨!");
-      client.subscribe(mqtt_topic);
-    } else {
-      Serial.print("연결 실패, rc=");
-      Serial.print(client.state());
-      delay(5000);  // 연결 재시도
+  if (!mqttConnected) {
+    while (!client.connected()) {
+      Serial.print("MQTT 연결 중...");
+      if (client.connect("ESP8266Client")) {
+        Serial.println("MQTT 연결됨!");
+        client.subscribe(mqtt_topic);
+        mqttConnected = true;
+      } else {
+        Serial.print("연결 실패, rc=");
+        Serial.print(client.state());
+        delay(5000);  // 연결 재시도
+      }
     }
   }
 }
 
 void checkWiFiAndReconnect() {
-  if (WiFi.status() != WL_CONNECTED) {
+  if (WiFi.status() != WL_CONNECTED && wifiConnected) {
+    Serial.println("Wi-Fi 연결 끊김, 재연결 중...");
     WiFi.disconnect();
     WiFi.begin(ssid, password);
     while (WiFi.status() != WL_CONNECTED) {
       delay(500);
     }
+    Serial.println("Wi-Fi 재연결 성공");
   }
 }
 
@@ -133,6 +141,7 @@ void loop() {
   checkWiFiAndReconnect();
   
   if (!client.connected()) {
+    mqttConnected = false;  // MQTT 연결이 끊겼다고 설정
     connectToMQTT();
   }
 
