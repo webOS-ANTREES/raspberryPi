@@ -34,6 +34,7 @@ Stepper stepper_NEMA17(STEPS_PER_REV, IN1, IN2, IN3, IN4);
 
 // 상태 변수
 bool motorActivated = false;
+bool lastCommandWasOff = false;  // 초기 상태는 열린 상태 (ON)
 
 // Function prototypes
 void connectToMQTT();
@@ -76,20 +77,22 @@ void callback(char* topic, byte* payload, unsigned int length) {
 
   Serial.println("메시지 도착: " + message);
 
-  // "ON" 메시지 수신 시 모터를 시계 방향 회전
-  if (message == "ON" && !motorActivated) {
+  // "OFF" 메시지 수신 시 모터를 닫힌 상태로 회전 (시계 방향)
+  if (message == "OFF" && !motorActivated && lastCommandWasOff == false) {
     motorActivated = true;
-    Serial.println("모터 시계 방향으로 회전 시작...");
+    Serial.println("모터 시계 방향으로 회전 시작... (닫힘 상태)");
     stepper_NEMA17.step(-STEPS_TO_MOVE);  // 시계 방향으로 9.75 회전
     motorActivated = false;
+    lastCommandWasOff = true;  // 마지막 명령을 OFF로 설정
   }
 
-  // "OFF" 메시지 수신 시 모터를 반시계 방향으로 회전
-  else if (message == "OFF" && !motorActivated) {
+  // "ON" 메시지 수신 시 모터를 열린 상태로 회전 (반시계 방향)
+  else if (message == "ON" && !motorActivated && lastCommandWasOff == true) {
     motorActivated = true;
-    Serial.println("모터 반시계 방향으로 회전 시작...");
+    Serial.println("모터 반시계 방향으로 회전 시작... (열림 상태)");
     stepper_NEMA17.step(STEPS_TO_MOVE);  // 반시계 방향으로 9.75 회전
     motorActivated = false;
+    lastCommandWasOff = false;  // 마지막 명령을 ON으로 설정
   }
 }
 
