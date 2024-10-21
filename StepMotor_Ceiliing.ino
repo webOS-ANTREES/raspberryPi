@@ -16,7 +16,6 @@ const char* password = "xodn010219";
 
 // MQTT Broker settings
 const char* mqtt_server = "172.20.48.180";
-const int mqtt_port = 1883;
 const char* mqtt_topic = "nodemcu/ceiling";
 
 WiFiClient espClient;
@@ -61,7 +60,7 @@ void setup() {
   Serial.println(WiFi.localIP());
 
   // Setup MQTT
-  client.setServer(mqtt_server, mqtt_port);
+  client.setServer(mqtt_server, 1883);
   client.setCallback(callback);
 
   // Connect to MQTT broker
@@ -123,7 +122,7 @@ void connectToMQTT() {
     Serial.print("Connecting to MQTT broker...");
     if (client.connect(("NodeMCUClient_" + String(ESP.getChipId())).c_str())) {
       Serial.println("connected");
-      client.subscribe(mqtt_topic, 1);  // QoS 1
+      client.subscribe(mqtt_topic);  // QoS default (0)
     } else {
       Serial.print("failed, rc=");
       Serial.print(client.state());
