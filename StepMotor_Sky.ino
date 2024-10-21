@@ -30,6 +30,7 @@ PubSubClient client(espClient);
 bool motorActivated = false;
 int stepsLeft = totalSteps;  // 남은 스텝 수
 unsigned long previousStepTime = 0;  // 이전 스텝을 실행한 시간 기록
+bool lastCommandWasOff = true;  // 초기 상태는 닫힌 상태 (OFF)
 
 // Function prototypes
 void rotateMotorAsync(int stepsToMove, int speed);
@@ -69,23 +70,27 @@ void callback(char* topic, byte* payload, unsigned int length) {
 
   Serial.println("메시지 도착: " + message);
 
-  // "ON" 메시지 수신 시 모터를 시계 방향으로 회전
-  if (message == "OFF" && !motorActivated) {
+  // "OFF" 메시지 수신 시 모터를 닫힌 상태(시계 방향)로 회전
+  if (message == "OFF" && !motorActivated && lastCommandWasOff == false) {
     motorActivated = true;
     stepsLeft = totalSteps;  // 스텝 수 초기화
     rotateMotorAsync(totalSteps, stepDelay);  // 시계 방향 회전
+    lastCommandWasOff = true;  // 마지막 명령을 OFF로 설정
+    Serial.println("닫힘 상태로 모터 회전");
   }
 
-  // "OFF" 메시지 수신 시 모터 반대 방향으로 회전
-  else if (message == "ON" && motorActivated) {
+  // "ON" 메시지 수신 시 모터를 열린 상태(반시계 방향)로 회전
+  else if (message == "ON" && motorActivated && lastCommandWasOff == true) {
     motorActivated = false;
     stepsLeft = totalSteps;
     rotateMotorAsync(-totalSteps, stepDelay);  // 반시계 방향 회전
+    lastCommandWasOff = false;  // 마지막 명령을 ON으로 설정
+    Serial.println("열림 상태로 모터 회전");
   }
 }
 
 void rotateMotorAsync(int stepsToMove, int speed) {
-  int direction = (stepsToMove > 0) ? HIGH : LOW;  // 방향 결정
+  int direction = (stepsToMove > 0) ? HIGH : LOW;  // 방향 결정 (시계/반시계)
   digitalWrite(dirPin, direction);
   stepsLeft = abs(stepsToMove);  // 남은 스텝 수 설정
   previousStepTime = millis();  // 시작 시간 설정
@@ -94,7 +99,7 @@ void rotateMotorAsync(int stepsToMove, int speed) {
 void handleMotor() {
   if (stepsLeft > 0) {
     unsigned long currentTime = millis();
-    if (currentTime - previousStepTime >= (stepDelay / 1000)) {  // 논블로킹 딜레이 처리
+    if (currentTime - previousStepTime >= stepDelay) {  // 논블로킹 딜레이 처리
       previousStepTime = currentTime;
 
       // STEP 핀에 펄스 발생
