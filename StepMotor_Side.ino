@@ -46,7 +46,7 @@ void setup() {
   pinMode(stepPin, OUTPUT);
   pinMode(dirPin, OUTPUT);
   pinMode(enablePin, OUTPUT);  // ENABLE 핀 설정
-  digitalWrite(enablePin, LOW); // 기본적으로 모터 비활성화 (HIGH 상태)
+  digitalWrite(enablePin, LOW); // 기본적으로 모터 비활성화 (LOW 상태)
 
   // 시리얼 통신 시작
   Serial.begin(9600);
@@ -76,20 +76,21 @@ void callback(char* topic, byte* payload, unsigned int length) {
 
   Serial.println("메시지 도착: " + message);
 
-  // ON 메시지를 받으면 모터를 활성화 (ENABLE 핀을 LOW로 설정)
+  // ON 메시지를 받으면 ENABLE 핀을 HIGH로 설정하고 모터 동작 후 다시 HIGH로 유지
   if (message == "ON" && !motorActivated && lastCommandWasOff == false) {
     motorActivated = true;
     stepsLeft = totalSteps;  // 스텝 수 초기화
-    digitalWrite(enablePin, HIGH); // 모터 활성화
+    digitalWrite(enablePin, HIGH); // 모터 활성화 (ENABLE 핀을 HIGH로)
     rotateMotorAsync(totalSteps, stepDelay);  // 시계 방향 회전
     lastCommandWasOff = true;  // 마지막 명령을 OFF로 설정
     Serial.println("모터 활성화 및 시계 방향 회전 중");
   }
 
-  // OFF 메시지를 받으면 모터 동작 후 비활성화 (ENABLE 핀을 HIGH로 설정)
+  // OFF 메시지를 받으면 ENABLE 핀을 LOW로 설정하고 그대로 LOW 상태 유지
   else if (message == "OFF" && motorActivated && lastCommandWasOff == true) {
     motorActivated = false;
     stepsLeft = totalSteps;
+    digitalWrite(enablePin, LOW);  // 모터 비활성화 (ENABLE 핀을 LOW로)
     rotateMotorAsync(-totalSteps, stepDelay);  // 반시계 방향 회전
     lastCommandWasOff = false;  // 마지막 명령을 ON으로 설정
     Serial.println("모터 비활성화 예정, 반시계 방향 회전 중");
@@ -115,12 +116,6 @@ void handleMotor() {
       digitalWrite(stepPin, LOW);
 
       stepsLeft--;  // 남은 스텝 수 감소
-
-      // 모터가 OFF 명령을 완료하면 ENABLE 핀을 HIGH로 설정하여 비활성화
-      if (stepsLeft == 0 && !motorActivated) {
-        digitalWrite(enablePin, HIGH);  // 모터 비활성화 (전류 차단)
-        Serial.println("모터 비활성화됨, ENABLE 핀 HIGH");
-      }
     }
   }
 }
