@@ -21,7 +21,7 @@ const char* ssid = "pi";
 const char* password = "xodn010219";
 
 // MQTT Broker settings
-const char* mqtt_server = "192.168.50.248";
+const char* mqtt_server = "192.168.137.147";
 const char* mqtt_topic = "nodemcu/side";
 
 // Wi-Fi and MQTT clients
@@ -93,15 +93,15 @@ void callback(char* topic, byte* payload, unsigned int length) {
 }
 
 void connectToMQTT() {
-  while (!client.connected()) {
+  // MQTT 연결 시도, 연결 성공 시 메시지 출력
+  if (!client.connected()) {
     Serial.print("MQTT 연결 중...");
     if (client.connect("ESP8266Client")) {
       Serial.println("MQTT 연결됨!");
-      client.subscribe(mqtt_topic);
+      client.subscribe(mqtt_topic);  // 구독 설정
     } else {
       Serial.print("연결 실패, rc=");
-      Serial.print(client.state());
-      delay(5000);  // 연결 재시도
+      Serial.println(client.state());
     }
   }
 }
@@ -120,8 +120,9 @@ void loop() {
   checkWiFiAndReconnect();
   
   if (!client.connected()) {
-    connectToMQTT();
+    connectToMQTT();  // 연결이 끊겼을 때만 연결 시도
   }
+  
   ESP.wdtDisable();
   client.loop();  // MQTT 통신 처리
 }
