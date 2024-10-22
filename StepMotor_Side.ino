@@ -4,11 +4,10 @@
 // 핀 설정 (DRV8825용)
 const int dirPin = 4;   // DIR 핀 (GPIO 4)
 const int stepPin = 2;  // 스텝 핀 (GPIO 2)
-const int enablePin = 5; // ENABLE 핀 (GPIO5, D1)
 
 // 한 바퀴당 스텝 수 (NEMA17 모터의 경우 200 스텝)
 const float STEPS_PER_REV = 200;
-const float NUM_OF_REVS = 9.75;  // 9.75바퀴
+const float NUM_OF_REVS = 10; // 32바퀴
 // 한 바퀴당 필요한 스텝 수
 const float totalSteps = STEPS_PER_REV * NUM_OF_REVS;
 
@@ -22,7 +21,7 @@ const char* password = "xodn010219";
 // MQTT Broker settings
 const char* mqtt_server = "192.168.137.147";
 const char* mqtt_topic = "nodemcu/side";
-const char* client_id = "Side_1";
+const char* client_id = "side_1";
 
 // Wi-Fi and MQTT clients
 WiFiClient espClient;
@@ -45,10 +44,6 @@ void setup() {
   // GPIO 핀 설정
   pinMode(stepPin, OUTPUT);
   pinMode(dirPin, OUTPUT);
-  pinMode(enablePin, OUTPUT);  // ENABLE 핀 설정
-
-  // 모터 잠금 상태로 설정
-  digitalWrite(enablePin, LOW); // 기본적으로 모터 잠금 상태 (비활성화)
 
   // 시리얼 통신 시작
   Serial.begin(9600);
@@ -78,28 +73,25 @@ void callback(char* topic, byte* payload, unsigned int length) {
 
   Serial.println("메시지 도착: " + message);
 
-  // ON 메시지를 받으면 모터를 시계 방향으로 회전 후 잠금 해제 (ENABLE 핀 LOW)
-  if (message == "ON" && lastCommandWasOff == true) {
+  // 'OFF' 메시지 수신 시 모터를 시계 방향으로 회전 (마지막 명령이 'OFF'여야 함)
+  if (message == "ON" && !motorActivated && lastCommandWasOff == false) {
     motorActivated = true;
     stepsLeft = totalSteps;  // 스텝 수 초기화
-    digitalWrite(enablePin, LOW); // 모터 활성화 (잠금 해제)
     rotateMotorAsync(totalSteps, stepDelay);  // 시계 방향 회전
-    lastCommandWasOff = false;  // 마지막 명령을 ON으로 설정
-    Serial.println("모터 시계 방향 회전 중");
+    lastCommandWasOff = true;  // 마지막 명령을 OFF로 설정
   }
 
-  // OFF 메시지를 받으면 모터를 시계 반대 방향으로 회전 후 잠금 (ENABLE 핀 HIGH)
-  else if (message == "OFF" && lastCommandWasOff == false) {
-    motorActivated = true;
-    stepsLeft = totalSteps;  // 스텝 수 초기화
-    rotateMotorAsync(-totalSteps, stepDelay);  // 시계 반대 방향 회전
-    lastCommandWasOff = true;  // 마지막 명령을 OFF로 설정
-    Serial.println("모터 시계 반대 방향 회전 중");
+  // 'ON' 메시지 수신 시 모터를 반시계 방향으로 회전 (마지막 명령이 'ON'여야 함)
+  else if (message == "OFF" && motorActivated && lastCommandWasOff == true) {
+    motorActivated = false;
+    stepsLeft = totalSteps;
+    rotateMotorAsync(-totalSteps, stepDelay);  // 반시계 방향 회전
+    lastCommandWasOff = false;  // 마지막 명령을 ON으로 설정
   }
 }
 
 void rotateMotorAsync(int stepsToMove, int speed) {
-  int direction = (stepsToMove > 0) ? LOW : HIGH;  // 방향 결정 (시계 방향 또는 반시계 방향)
+  int direction = (stepsToMove > 0) ? LOW : HIGH;  // 방향 결정
   digitalWrite(dirPin, direction);
   stepsLeft = abs(stepsToMove);  // 남은 스텝 수 설정
   previousStepTime = millis();  // 시작 시간 설정
@@ -117,18 +109,6 @@ void handleMotor() {
       digitalWrite(stepPin, LOW);
 
       stepsLeft--;  // 남은 스텝 수 감소
-
-      // 모터 동작 완료 시
-      if (stepsLeft == 0) {
-        if (lastCommandWasOff) {
-          digitalWrite(enablePin, HIGH);  // OFF일 때 모터 비활성화 (잠금)
-          Serial.println("모터 시계 반대 방향 회전 완료, 모터 잠금");
-        } else {
-          digitalWrite(enablePin, LOW);  // ON일 때 모터 활성화 (잠금 해제)
-          Serial.println("모터 시계 방향 회전 완료, 모터 잠금 해제");
-        }
-        motorActivated = false;  // 모터 동작 완료
-      }
     }
   }
 }
@@ -151,7 +131,7 @@ void connectToMQTT() {
 }
 
 void checkWiFiAndReconnect() {
-  if (WiFi.status() != WL_CONNECTED) {
+  if (WiFi.status() != WL_CONNECTED && wifiConnected) {
     Serial.println("Wi-Fi 연결 끊김, 재연결 중...");
     WiFi.disconnect();
     WiFi.begin(ssid, password);
