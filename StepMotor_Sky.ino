@@ -89,12 +89,6 @@ void callback(char* topic, byte* payload, unsigned int length) {
   // OFF 메시지를 받으면 모터 전류를 끊고 잠시 후에 반시계 방향으로 회전
   else if (message == "OFF" && motorActivated) {
     motorActivated = false;
-
-    // 1. 먼저 전류를 잠시 끊어 모터를 해제
-    digitalWrite(enablePin, HIGH);  // 모터 비활성화 (전류 차단)
-    delay(100);  // 잠시 대기 (필요에 따라 조정 가능)
-
-    // 2. 다시 전류를 공급한 후 반시계 방향으로 회전
     stepsLeft = totalSteps;  // 스텝 수 초기화
     digitalWrite(enablePin, LOW);  // 모터 활성화 (전류 재공급)
     delay(100);  // 전류가 다시 공급될 시간을 확보
