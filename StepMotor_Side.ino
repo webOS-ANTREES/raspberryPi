@@ -18,7 +18,7 @@ const float ROTATIONS = 9.75;   // 한 번 회전 명령당 9.75 바퀴 회전
 const float STEPS_TO_MOVE = STEPS_PER_REV * ROTATIONS;  // 회전할 스텝 수
 
 // 모터 속도 설정 (RPM)
-const int motorSpeed = 100;  // 모터 속도 (예: 100 RPM)
+const int motorSpeed = 120;  // 모터 속도 (예: 100 RPM)
 
 // Wi-Fi credentials
 const char* ssid = "pi";
@@ -64,7 +64,7 @@ void setup() {
   digitalWrite(ENB, LOW);
 
   // 시리얼 통신 시작
-  Serial.begin(115200);
+  Serial.begin(9600);
 
   // Wi-Fi 연결
   WiFi.begin(ssid, password);
