@@ -97,15 +97,12 @@ void callback(char* topic, byte* payload, unsigned int length) {
     // 2. 다시 전류를 공급한 후 반시계 방향으로 회전
     stepsLeft = totalSteps;  // 스텝 수 초기화
     digitalWrite(enablePin, LOW);  // 모터 활성화 (전류 재공급)
+    delay(100);  // 전류가 다시 공급될 시간을 확보
     rotateMotorAsync(totalSteps, false);  // 반시계 방향 회전 (direction = false)
     lastCommandWasOff = true;  // 마지막 명령은 OFF 상태
     Serial.println("모터 비활성화 예정, 반시계 방향 회전 중");
   }
 }
-
-
-
-
 
 void rotateMotorAsync(int stepsToMove, bool direction) {
   // 방향 설정: true면 시계 방향, false면 반시계 방향
@@ -113,8 +110,6 @@ void rotateMotorAsync(int stepsToMove, bool direction) {
   stepsLeft = stepsToMove;  // 남은 스텝 수는 받은 값 그대로 설정
   previousStepTime = millis();  // 현재 시간을 저장
 }
-
-
 
 void handleMotor() {
   if (stepsLeft > 0) {
@@ -131,6 +126,7 @@ void handleMotor() {
 
       // 모터가 OFF 명령을 완료하면 ENABLE 핀을 HIGH로 설정하여 비활성화
       if (stepsLeft == 0 && !motorActivated) {
+        delay(100);  // 모터가 완전히 멈출 시간을 제공
         digitalWrite(enablePin, HIGH);  // 모터 비활성화 (전류 차단)
         Serial.println("모터 비활성화됨, ENABLE 핀 HIGH");
       }
