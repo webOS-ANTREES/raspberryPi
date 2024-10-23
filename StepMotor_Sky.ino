@@ -20,7 +20,7 @@ const char* ssid = "pi";
 const char* password = "xodn010219";
 
 // MQTT Broker settings
-const char* mqtt_server = "192.168.137.147";
+const char* mqtt_server = "192.168.137.106";
 const char* mqtt_topic = "nodemcu/sky";
 const char* client_id = "sky_1";
 
@@ -76,32 +76,45 @@ void callback(char* topic, byte* payload, unsigned int length) {
 
   Serial.println("메시지 도착: " + message);
 
-  // ON 메시지를 받으면 모터를 활성화 (ENABLE 핀을 LOW로 설정)
-  if (message == "ON" && !motorActivated && lastCommandWasOff == false) {
+  // ON 메시지를 받으면 모터를 시계 방향으로 회전
+  if (message == "ON" && !motorActivated) {
     motorActivated = true;
     stepsLeft = totalSteps;  // 스텝 수 초기화
-    digitalWrite(enablePin, LOW); // 모터 활성화
-    rotateMotorAsync(totalSteps, stepDelay);  // 시계 방향 회전
-    lastCommandWasOff = true;  // 마지막 명령을 OFF로 설정
+    digitalWrite(enablePin, LOW);  // 모터 활성화 (전류 공급)
+    rotateMotorAsync(totalSteps, true);  // 시계 방향 회전 (direction = true)
+    lastCommandWasOff = false;  // 마지막 명령은 ON 상태
     Serial.println("모터 활성화 및 시계 방향 회전 중");
   }
 
-  // OFF 메시지를 받으면 모터 동작 후 비활성화 (ENABLE 핀을 HIGH로 설정)
-  else if (message == "OFF" && motorActivated && lastCommandWasOff == true) {
+  // OFF 메시지를 받으면 모터 전류를 끊고 잠시 후에 반시계 방향으로 회전
+  else if (message == "OFF" && motorActivated) {
     motorActivated = false;
-    stepsLeft = totalSteps;
-    rotateMotorAsync(-totalSteps, stepDelay);  // 반시계 방향 회전
-    lastCommandWasOff = false;  // 마지막 명령을 ON으로 설정
+
+    // 1. 먼저 전류를 잠시 끊어 모터를 해제
+    digitalWrite(enablePin, HIGH);  // 모터 비활성화 (전류 차단)
+    delay(100);  // 잠시 대기 (필요에 따라 조정 가능)
+
+    // 2. 다시 전류를 공급한 후 반시계 방향으로 회전
+    stepsLeft = totalSteps;  // 스텝 수 초기화
+    digitalWrite(enablePin, LOW);  // 모터 활성화 (전류 재공급)
+    rotateMotorAsync(totalSteps, false);  // 반시계 방향 회전 (direction = false)
+    lastCommandWasOff = true;  // 마지막 명령은 OFF 상태
     Serial.println("모터 비활성화 예정, 반시계 방향 회전 중");
   }
 }
 
-void rotateMotorAsync(int stepsToMove, int speed) {
-  int direction = (stepsToMove > 0) ? LOW : HIGH;  // 방향 결정
-  digitalWrite(dirPin, direction);
-  stepsLeft = abs(stepsToMove);  // 남은 스텝 수 설정
-  previousStepTime = millis();  // 시작 시간 설정
+
+
+
+
+void rotateMotorAsync(int stepsToMove, bool direction) {
+  // 방향 설정: true면 시계 방향, false면 반시계 방향
+  digitalWrite(dirPin, direction ? LOW : HIGH);  // LOW = 시계방향, HIGH = 반시계방향
+  stepsLeft = stepsToMove;  // 남은 스텝 수는 받은 값 그대로 설정
+  previousStepTime = millis();  // 현재 시간을 저장
 }
+
+
 
 void handleMotor() {
   if (stepsLeft > 0) {
