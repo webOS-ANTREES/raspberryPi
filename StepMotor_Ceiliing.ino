@@ -4,6 +4,7 @@
 // 핀 설정 (DRV8825용)
 const int dirPin = 4;   // DIR 핀 (GPIO 4)
 const int stepPin = 2;  // 스텝 핀 (GPIO 2)
+const int enablePin = 5; // ENABLE 핀 (GPIO 5)
 
 // 한 바퀴당 스텝 수 (NEMA17 모터의 경우 200 스텝)
 const float STEPS_PER_REV = 200;
@@ -19,7 +20,7 @@ const char* ssid = "pi";
 const char* password = "xodn010219";
 
 // MQTT Broker settings
-const char* mqtt_server = "192.168.137.147";
+const char* mqtt_server = "192.168.137.106";
 const char* mqtt_topic = "nodemcu/ceiling";
 const char* client_id = "Ceiling_1";
 
@@ -44,6 +45,8 @@ void setup() {
   // GPIO 핀 설정
   pinMode(stepPin, OUTPUT);
   pinMode(dirPin, OUTPUT);
+  pinMode(enablePin, OUTPUT); // ENABLE 핀 설정
+  digitalWrite(enablePin, HIGH);  // 처음에는 모터 전류 차단
 
   // 시리얼 통신 시작
   Serial.begin(9600);
@@ -73,20 +76,24 @@ void callback(char* topic, byte* payload, unsigned int length) {
 
   Serial.println("메시지 도착: " + message);
 
-  // 'OFF' 메시지 수신 시 모터를 시계 방향으로 회전 (마지막 명령이 'OFF'여야 함)
+  // 'ON' 메시지 수신 시 모터를 시계 방향으로 회전
   if (message == "ON" && !motorActivated && lastCommandWasOff == false) {
     motorActivated = true;
     stepsLeft = totalSteps;  // 스텝 수 초기화
+    digitalWrite(enablePin, LOW);  // 모터 전류 공급 (ENABLE LOW)
     rotateMotorAsync(totalSteps, stepDelay);  // 시계 방향 회전
     lastCommandWasOff = true;  // 마지막 명령을 OFF로 설정
+    Serial.println("모터 ON: 시계 방향으로 회전 중");
   }
 
-  // 'ON' 메시지 수신 시 모터를 반시계 방향으로 회전 (마지막 명령이 'ON'여야 함)
+  // 'OFF' 메시지 수신 시 모터를 반시계 방향으로 회전
   else if (message == "OFF" && motorActivated && lastCommandWasOff == true) {
     motorActivated = false;
-    stepsLeft = totalSteps;
+    stepsLeft = totalSteps;  // 스텝 수 초기화
+    digitalWrite(enablePin, LOW);  // 모터 전류 공급 (ENABLE LOW)
     rotateMotorAsync(-totalSteps, stepDelay);  // 반시계 방향 회전
     lastCommandWasOff = false;  // 마지막 명령을 ON으로 설정
+    Serial.println("모터 OFF: 반시계 방향으로 회전 중");
   }
 }
 
@@ -109,6 +116,12 @@ void handleMotor() {
       digitalWrite(stepPin, LOW);
 
       stepsLeft--;  // 남은 스텝 수 감소
+
+      // 모든 스텝이 끝나면 모터 비활성화
+      if (stepsLeft == 0) {
+        digitalWrite(enablePin, HIGH);  // 모터 전류 차단 (ENABLE HIGH)
+        Serial.println("모터 전류 차단: ENABLE 핀 HIGH");
+      }
     }
   }
 }
