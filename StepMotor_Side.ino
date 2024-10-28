@@ -26,8 +26,8 @@ const char* password = "xodn010219";
 
 // MQTT Broker settings
 const char* mqtt_server = "192.168.137.106";
-const char* mqtt_topic = "nodemcu/side";
-const char* client_id = "side_1";
+const char* mqtt_topic = "nodemcu/side_left";
+const char* client_id = "side_left";
 
 // Wi-Fi and MQTT clients
 WiFiClient espClient;
