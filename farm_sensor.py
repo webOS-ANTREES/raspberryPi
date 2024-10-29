@@ -38,44 +38,70 @@ def upload_to_firebase(co2, temperature, humidity, illuminance, phVal, waterTemp
     })
     print("Data uploaded to Firebase")
 
+import time  # sleep 함수 사용을 위한 import
+
 try:
-    while True:
-        # 아두이노로부터 데이터 수신
+    while True:  # 무한 루프를 통해 1분마다 반복
+        # 시리얼 데이터 받기
         receivedData = ser.readline().decode('utf-8').rstrip()
-        if receivedData:
-            print(f"Received from Arduino: {receivedData}")
 
-            # 데이터 파싱
-            try:
-                co2_part, temp_part, hum_part, illuminance_part, ph_part, waterTemp_part = receivedData.split(", ")
-                
-                # CO2 값 추출
-                co2_value = int(co2_part.split(": ")[1])
-                
-                # 온도 값 추출
-                temp_value = float(temp_part.split(": ")[1])
-                
-                # 습도 값 추출
-                hum_value = float(hum_part.split(": ")[1])
-                
-                # 조도 값 추출
-                illuminance_value = float(illuminance_part.split(": ")[1])
-                
-                # pH 값 추출
-                phVal = float(ph_part.split(": ")[1])
-                
-                # 수온 값 추출
-                waterTemp_value = float(waterTemp_part.split(": ")[1])
+        # 쉼표로 나눈 데이터가 6개인지 확인
+        parts = receivedData.split(", ")
+        if len(parts) != 6:
+            raise ValueError(f"Expected 6 parts, but got {len(parts)}. Data: {receivedData}")
 
-                # Firebase에 데이터 업로드
-                upload_to_firebase(co2_value, temp_value, hum_value, illuminance_value, phVal, waterTemp_value)
-            except Exception as e:
-                print(f"Error parsing data: {e}")
+        # 각각의 데이터를 나누기
+        co2_part, temp_part, hum_part, illuminance_part, ph_part, waterTemp_part = parts
 
-        time.sleep(2)  # 2초마다 데이터 전송
+        # 각 데이터에서 ": "로 나누고 유효성 검사
+        try:
+            co2_value = int(co2_part.split(": ")[1])
+        except (IndexError, ValueError):
+            co2_value = None
+            print(f"Failed to parse CO2 value: {co2_part}")
 
-except KeyboardInterrupt:
-    print("Program interrupted")
+        try:
+            temp_value = float(temp_part.split(": ")[1])
+        except (IndexError, ValueError):
+            temp_value = None
+            print(f"Failed to parse temperature value: {temp_part}")
+
+        try:
+            hum_value = float(hum_part.split(": ")[1])
+        except (IndexError, ValueError):
+            hum_value = None
+            print(f"Failed to parse humidity value: {hum_part}")
+
+        try:
+            illuminance_value = float(illuminance_part.split(": ")[1])
+        except (IndexError, ValueError):
+            illuminance_value = None
+            print(f"Failed to parse illuminance value: {illuminance_part}")
+
+        try:
+            phVal = float(ph_part.split(": ")[1])
+        except (IndexError, ValueError):
+            phVal = None
+            print(f"Failed to parse pH value: {ph_part}")
+
+        try:
+            waterTemp_value = float(waterTemp_part.split(": ")[1])
+        except (IndexError, ValueError):
+            waterTemp_value = None
+            print(f"Failed to parse water temperature value: {waterTemp_part}")
+
+        # 정상적으로 파싱된 데이터 Firebase에 업로드
+        if co2_value is not None and temp_value is not None and hum_value is not None and illuminance_value is not None and phVal is not None and waterTemp_value is not None:
+            upload_to_firebase(co2_value, temp_value, hum_value, illuminance_value, phVal, waterTemp_value)
+        else:
+            print("Parsing failed for some values, skipping Firebase upload.")
+
+        # 1분 동안 대기
+        time.sleep(60)
+
+except Exception as e:
+    print(f"Error parsing data: {e}")
+
 
 finally:
     ser.close()  # 시리얼 포트 닫기
