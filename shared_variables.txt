@@ -1,0 +1,5 @@
+total_strawberry_count = 2
+total_ripe_count = 0
+total_unripe_count = 2
+total_pest_count = 0
+stop_count = 0
