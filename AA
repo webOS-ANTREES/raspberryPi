@@ -9,6 +9,8 @@ ser = serial.Serial(SERIAL_PORT, baudrate=BAUD_RATE, timeout=1)
 
 # 초기값
 measurement_count = 0  # 측정 횟수
+x_del_ang, y_del_ang, z_del_ang = 0.0, 0.0, 0.0  # 각도 변화량 초기화
+previous_time = time.time()  # 이전 시간 기록
 
 # 데이터 저장 리스트
 data_records = []
@@ -30,6 +32,9 @@ print(send_command('sp=10'))  # 10ms(0.01초) 주기 데이터 전송
 try:
     while True:
         data = ser.readline().decode().strip()
+        current_time = time.time()
+        dt = current_time - previous_time  # 시간 간격 계산
+        previous_time = current_time
 
         if data:
             try:
@@ -37,6 +42,11 @@ try:
                 values = list(map(float, data.split()))
                 if len(values) == 9:  # 센서 데이터가 9개 값으로 구성된 경우
                     measurement_count += 1
+
+                    # 각속도 적분 (각도 변화량 계산)
+                    x_del_ang += values[0] * dt  # Gyro_X 적분
+                    y_del_ang += values[1] * dt  # Gyro_Y 적분
+                    z_del_ang += values[2] * dt  # Gyro_Z 적분
 
                     # IMU_MODE 값 결정
                     if measurement_count <= 10000:
@@ -56,6 +66,9 @@ try:
                         "Accel_X": values[3],
                         "Accel_Y": values[4],
                         "Accel_Z": values[5],
+                        "X_DEL_ANG": x_del_ang,
+                        "Y_DEL_ANG": y_del_ang,
+                        "Z_DEL_ANG": z_del_ang,
                         "ROLL": values[6],
                         "PITCH": values[7],
                         "HEADING": values[8]
@@ -63,7 +76,9 @@ try:
                     data_records.append(record)
 
                     # 실시간 결과 출력
-                    print(f"Measurement: {measurement_count}, IMU_MODE: {imu_mode}, Data: {values}")
+                    print(f"Measurement: {measurement_count}, IMU_MODE: {imu_mode}, "
+                          f"X_DEL_ANG: {x_del_ang:.8f}, Y_DEL_ANG: {y_del_ang:.8f}, Z_DEL_ANG: {z_del_ang:.8f}, "
+                          f"Data: {values}")
 
             except ValueError:
                 # 데이터 파싱 오류 시 무시
