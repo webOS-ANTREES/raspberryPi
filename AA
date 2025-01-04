@@ -39,7 +39,12 @@ try:
                     measurement_count += 1
 
                     # IMU_MODE 값 결정
-                    imu_mode = 0 if measurement_count <= 1000 else 8
+                    if measurement_count <= 10000:
+                        imu_mode = 0
+                    elif measurement_count <= 20000:
+                        imu_mode = 8
+                    else:
+                        break  # 20000개 데이터 수집 후 종료
 
                     # 데이터 기록
                     record = {
@@ -60,10 +65,6 @@ try:
                     # 실시간 결과 출력
                     print(f"Measurement: {measurement_count}, IMU_MODE: {imu_mode}, Data: {values}")
 
-                # 11000개 데이터 수집 후 종료
-                if measurement_count >= 11000:
-                    break
-
             except ValueError:
                 # 데이터 파싱 오류 시 무시
                 continue
@@ -73,5 +74,5 @@ except KeyboardInterrupt:
 # 데이터를 CSV로 저장
 print("데이터 저장 중...")
 df = pd.DataFrame(data_records)
-df.to_csv("sensor_data_11000.csv", index=False, encoding='utf-8', float_format="%.8f")
-print("데이터가 'raw_sensor_data_11000.csv'로 UTF-8 인코딩 및 소수점 8자리로 저장되었습니다.")
+df.to_csv("sensor_data_20000.csv", index=False, encoding='utf-8', float_format="%.8f")
+print("데이터가 'sensor_data_20000.csv'로 UTF-8 인코딩 및 소수점 8자리로 저장되었습니다.")
