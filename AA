@@ -74,4 +74,4 @@ except KeyboardInterrupt:
 print("데이터 저장 중...")
 df = pd.DataFrame(data_records)
 df.to_csv("sensor_data_11000.csv", index=False, encoding='utf-8', float_format="%.8f")
-print("데이터가 'sensor_data_11000.csv'로 UTF-8 인코딩 및 소수점 8자리로 저장되었습니다.")
+print("데이터가 'raw_sensor_data_11000.csv'로 UTF-8 인코딩 및 소수점 8자리로 저장되었습니다.")
