@@ -1,6 +1,21 @@
 import serial
+import math
 import time
-import pandas as pd
+
+def calculate_orientation(accel, gyro, dt, previous_heading):
+    """가속도와 각속도를 기반으로 ROLL, PITCH, HEADING 계산"""
+    ax, ay, az = accel
+    roll = math.atan2(ay, az)
+    pitch = math.atan2(-ax, math.sqrt(ay**2 + az**2))
+
+    wx, wy, wz = gyro
+    heading = previous_heading + wz * dt  # Z축 각속도 적분
+
+    roll_deg = math.degrees(roll)
+    pitch_deg = math.degrees(pitch)
+    heading_deg = math.degrees(heading) % 360
+
+    return roll_deg, pitch_deg, heading_deg
 
 # 시리얼 포트 설정
 SERIAL_PORT = '/dev/ttyUSB0'
@@ -8,79 +23,39 @@ BAUD_RATE = 115200
 ser = serial.Serial(SERIAL_PORT, baudrate=BAUD_RATE, timeout=1)
 
 # 초기값
-x_del_ang, y_del_ang, z_del_ang = 0.0, 0.0, 0.0  # 각도 변화량
-measurement_count = 0  # 측정 횟수
+previous_heading = 0.0  # 초기 HEADING
 
-# 데이터 저장 리스트
-data_records = []
-
-def send_command(command):
-    """센서 명령 전송 및 응답 읽기"""
-    ser.write((command + '\n').encode())
-    time.sleep(0.1)  # 센서 응답 대기
-    response = ser.readline().decode().strip()
-    return response
-
-# 센서 설정
-print("센서 초기화 중...")
-print(send_command('cmd=5'))  # Euler 각도를 0으로 리셋
-print(send_command('ss=7'))  # 가속도, 각속도, 각도 데이터 설정
-print(send_command('sp=10'))  # 10ms(0.01초) 주기 데이터 전송
-
-# 데이터 읽기 루프
 try:
+    print("데이터 수집 시작...")
     while True:
-        data = ser.readline().decode().strip()
-
-        if data:
+        # 센서에서 데이터 읽기
+        raw_data = ser.readline().decode().strip()
+        if raw_data:
             try:
-                # 데이터를 공백으로 분리하여 값 추출
-                values = list(map(float, data.split()))
-                if len(values) == 9:  # 가속도, 각속도, 오일러 각도 데이터가 모두 포함된 경우
-                    gyro = values[3:6]  # 각속도 데이터
-                    euler = values[6:]  # 오일러 각도 데이터
+                # 데이터를 공백으로 분리하여 가속도와 각속도 추출
+                values = list(map(float, raw_data.split()))
+                if len(values) >= 6:  # 가속도(3) + 각속도(3)
+                    accel_data = values[:3]  # 가속도 데이터 (ax, ay, az)
+                    gyro_data = values[3:6]  # 각속도 데이터 (wx, wy, wz)
 
-                    # 각도 변화량 계산 (적분)
-                    x_del_ang += gyro[0] * 0.01  # 0.01초 간격
-                    y_del_ang += gyro[1] * 0.01
-                    z_del_ang += gyro[2] * 0.01
+                    # ROLL, PITCH, HEADING 계산
+                    dt = 1.0  # 1초 간격
+                    roll, pitch, heading = calculate_orientation(accel_data, gyro_data, dt, previous_heading)
 
-                    # 측정 횟수 증가
-                    measurement_count += 1
+                    # HEADING 갱신
+                    previous_heading = heading
 
-                    # IMU_MODE 값 결정
-                    imu_mode = 0 if measurement_count <= 1000 else 8
+                    # 결과 출력
+                    print(f"ROLL: {roll:.2f}°, PITCH: {pitch:.2f}°, HEADING: {heading:.2f}°")
 
-                    # 데이터 기록
-                    record = {
-                        "Measurement Count": measurement_count,
-                        "IMU_MODE": imu_mode,
-                        "X_DEL_ANG": round(x_del_ang, 8),
-                        "Y_DEL_ANG": round(y_del_ang, 8),
-                        "Z_DEL_ANG": round(z_del_ang, 8),
-                        "ROLL": round(euler[0], 8),
-                        "PITCH": round(euler[1], 8),
-                        "HEADING": round(euler[2], 8)
-                    }
-                    data_records.append(record)
-
-                    # 실시간 결과 출력
-                    print(f"Measurement: {measurement_count}, IMU_MODE: {imu_mode}, X_DEL_ANG: {x_del_ang:.8f}, "
-                          f"Y_DEL_ANG: {y_del_ang:.8f}, Z_DEL_ANG: {z_del_ang:.8f}, ROLL: {euler[0]:.8f}, "
-                          f"PITCH: {euler[1]:.8f}, HEADING: {euler[2]:.8f}")
-
-                # 11,000개 데이터 수집 후 종료
-                if measurement_count >= 11000:
-                    break
-
+                else:
+                    print("데이터 형식 오류:", raw_data)
             except ValueError:
-                # 데이터 파싱 오류 시 무시
-                continue
-except KeyboardInterrupt:
-    print("측정이 중단되었습니다.")
+                print("데이터 변환 오류:", raw_data)
 
-# 데이터를 CSV로 저장
-print("데이터 저장 중...")
-df = pd.DataFrame(data_records)
-df.to_csv("sensor_data_11000.csv", index=False, encoding='utf-8', float_format="%.8f")
-print("데이터가 'sensor_data_11000.csv'로 UTF-8 인코딩 및 소수점 8자리로 저장되었습니다.")
+        time.sleep(1)  # 1초 대기
+
+except KeyboardInterrupt:
+    print("데이터 수집 중단.")
+finally:
+    ser.close()
