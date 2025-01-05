@@ -10,6 +10,8 @@ ser = serial.Serial(SERIAL_PORT, baudrate=BAUD_RATE, timeout=1)
 # 초기값
 measurement_count = 0  # 측정 횟수
 x_del_ang, y_del_ang, z_del_ang = 0.0, 0.0, 0.0  # 각도 변화량 초기화
+x_error, y_error, z_error = 0.0, 0.0, 0.0  # 누적 오차 초기화
+error_factor = 0.0001  # 누적 오차 비율
 previous_time = time.time()  # 이전 시간 기록
 
 # 데이터 저장 리스트
@@ -48,6 +50,16 @@ try:
                     y_del_ang += values[4] * dt  # Gyro_Y 적분
                     z_del_ang += values[5] * dt  # Gyro_Z 적분
 
+                    # 누적 오차 계산
+                    x_error += error_factor * values[3]
+                    y_error += error_factor * values[4]
+                    z_error += error_factor * values[5]
+
+                    # 누적 오차 반영
+                    x_del_ang_with_error = x_del_ang + x_error
+                    y_del_ang_with_error = y_del_ang + y_error
+                    z_del_ang_with_error = z_del_ang + z_error
+
                     # IMU_MODE 값 결정
                     if measurement_count <= 10000:
                         imu_mode = 0
@@ -66,9 +78,9 @@ try:
                         "Gyro_X": values[3],
                         "Gyro_Y": values[4],
                         "Gyro_Z": values[5],
-                        "X_DEL_ANG": x_del_ang,
-                        "Y_DEL_ANG": y_del_ang,
-                        "Z_DEL_ANG": z_del_ang,
+                        "X_DEL_ANG": x_del_ang_with_error,
+                        "Y_DEL_ANG": y_del_ang_with_error,
+                        "Z_DEL_ANG": z_del_ang_with_error,
                         "ROLL": values[6],
                         "PITCH": values[7],
                         "HEADING": values[8]
@@ -77,7 +89,7 @@ try:
 
                     # 실시간 결과 출력
                     print(f"Measurement: {measurement_count}, IMU_MODE: {imu_mode}, "
-                          f"X_DEL_ANG: {x_del_ang:.8f}, Y_DEL_ANG: {y_del_ang:.8f}, Z_DEL_ANG: {z_del_ang:.8f}, "
+                          f"X_DEL_ANG: {x_del_ang_with_error:.8f}, Y_DEL_ANG: {y_del_ang_with_error:.8f}, Z_DEL_ANG: {z_del_ang_with_error:.8f}, "
                           f"Data: {values}")
 
             except ValueError:
@@ -89,5 +101,5 @@ except KeyboardInterrupt:
 # 데이터를 CSV로 저장
 print("데이터 저장 중...")
 df = pd.DataFrame(data_records)
-df.to_csv("sensor_data_20000.csv", index=False, encoding='utf-8', float_format="%.8f")
-print("데이터가 'sensor_data_20000.csv'로 UTF-8 인코딩 및 소수점 8자리로 저장되었습니다.")
+df.to_csv("sensor_data_with_error.csv", index=False, encoding='utf-8', float_format="%.8f")
+print("데이터가 'sensor_data_with_error.csv'로 UTF-8 인코딩 및 소수점 8자리로 저장되었습니다.")
