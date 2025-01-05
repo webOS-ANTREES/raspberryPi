@@ -44,9 +44,9 @@ try:
                     measurement_count += 1
 
                     # 각속도 적분 (각도 변화량 계산)
-                    x_del_ang += values[0] * dt  # Gyro_X 적분
-                    y_del_ang += values[1] * dt  # Gyro_Y 적분
-                    z_del_ang += values[2] * dt  # Gyro_Z 적분
+                    x_del_ang += values[3] * dt  # Gyro_X 적분
+                    y_del_ang += values[4] * dt  # Gyro_Y 적분
+                    z_del_ang += values[5] * dt  # Gyro_Z 적분
 
                     # IMU_MODE 값 결정
                     if measurement_count <= 10000:
@@ -60,12 +60,12 @@ try:
                     record = {
                         "Measurement Count": measurement_count,
                         "IMU_MODE": imu_mode,
-                        "Gyro_X": values[0],
-                        "Gyro_Y": values[1],
-                        "Gyro_Z": values[2],
-                        "Accel_X": values[3],
-                        "Accel_Y": values[4],
-                        "Accel_Z": values[5],
+                        "Accel_X": values[0],
+                        "Accel_Y": values[1],
+                        "Accel_Z": values[2],
+                        "Gyro_X": values[3],
+                        "Gyro_Y": values[4],
+                        "Gyro_Z": values[5],
                         "X_DEL_ANG": x_del_ang,
                         "Y_DEL_ANG": y_del_ang,
                         "Z_DEL_ANG": z_del_ang,
