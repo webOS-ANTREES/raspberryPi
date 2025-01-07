@@ -61,7 +61,7 @@ try:
                     z_del_ang_with_error = z_del_ang + z_error
 
                     # IMU_MODE 값 결정
-                    if measurement_count <= 10000:
+                    if measurement_count <= 9500:
                         imu_mode = 0
                     elif measurement_count <= 20000:
                         imu_mode = 8
@@ -101,5 +101,5 @@ except KeyboardInterrupt:
 # 데이터를 CSV로 저장
 print("데이터 저장 중...")
 df = pd.DataFrame(data_records)
-df.to_csv("sensor_data_with_error.csv", index=False, encoding='utf-8', float_format="%.8f")
+df.to_csv("sensor_data_20000_with_error.csv", index=False, encoding='utf-8', float_format="%.8f")
 print("데이터가 'sensor_data_with_error.csv'로 UTF-8 인코딩 및 소수점 8자리로 저장되었습니다.")
