@@ -1,105 +1,29 @@
-import serial
-import time
-import pandas as pd
+from flask import Flask, send_file, jsonify
+import os
 
-# 시리얼 포트 설정
-SERIAL_PORT = '/dev/ttyUSB0'
-BAUD_RATE = 115200
-ser = serial.Serial(SERIAL_PORT, baudrate=BAUD_RATE, timeout=1)
+app = Flask(__name__)
 
-# 초기값
-measurement_count = 0  # 측정 횟수
-x_del_ang, y_del_ang, z_del_ang = 0.0, 0.0, 0.0  # 각도 변화량 초기화
-x_error, y_error, z_error = 0.0, 0.0, 0.0  # 누적 오차 초기화
-error_factor = 0.0001  # 누적 오차 비율
-previous_time = time.time()  # 이전 시간 기록
+# CSV 파일이 저장된 폴더 경로
+CSV_FOLDER = "/path/to/your/csv_folder"  # 실제 CSV 파일 경로로 변경하세요
 
-# 데이터 저장 리스트
-data_records = []
+@app.route('/list_csv', methods=['GET'])
+def list_csv_files():
+    """CSV 폴더의 모든 CSV 파일 목록을 반환"""
+    try:
+        files = [f for f in os.listdir(CSV_FOLDER) if f.endswith('.csv')]
+        return jsonify({"csv_files": files})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
-def send_command(command):
-    """센서 명령 전송 및 응답 읽기"""
-    ser.write((command + '\n').encode())
-    time.sleep(0.1)  # 센서 응답 대기
-    response = ser.readline().decode().strip()
-    return response
+@app.route('/download_csv/<filename>', methods=['GET'])
+def download_csv(filename):
+    """특정 CSV 파일을 클라이언트로 전송"""
+    file_path = os.path.join(CSV_FOLDER, filename)
+    if os.path.exists(file_path) and filename.endswith('.csv'):
+        return send_file(file_path, as_attachment=True)
+    else:
+        return jsonify({"error": f"File '{filename}' not found."}), 404
 
-# 센서 설정
-print("센서 초기화 중...")
-print(send_command('cmd=5'))  # Euler 각도를 0으로 리셋
-print(send_command('ss=7'))  # 가속도, 각속도, 각도 데이터 설정
-print(send_command('sp=10'))  # 10ms(0.01초) 주기 데이터 전송
-
-# 데이터 읽기 루프
-try:
-    while True:
-        data = ser.readline().decode().strip()
-        current_time = time.time()
-        dt = current_time - previous_time  # 시간 간격 계산
-        previous_time = current_time
-
-        if data:
-            try:
-                # 데이터를 공백으로 분리하여 값 추출
-                values = list(map(float, data.split()))
-                if len(values) == 9:  # 센서 데이터가 9개 값으로 구성된 경우
-                    measurement_count += 1
-
-                    # 각속도 적분 (각도 변화량 계산)
-                    x_del_ang += values[3] * dt  # Gyro_X 적분
-                    y_del_ang += values[4] * dt  # Gyro_Y 적분
-                    z_del_ang += values[5] * dt  # Gyro_Z 적분
-
-                    # 누적 오차 계산
-                    x_error += error_factor * values[3]
-                    y_error += error_factor * values[4]
-                    z_error += error_factor * values[5]
-
-                    # 누적 오차 반영
-                    x_del_ang_with_error = x_del_ang + x_error
-                    y_del_ang_with_error = y_del_ang + y_error
-                    z_del_ang_with_error = z_del_ang + z_error
-
-                    # IMU_MODE 값 결정
-                    if measurement_count <= 9500:
-                        imu_mode = 0
-                    elif measurement_count <= 20000:
-                        imu_mode = 8
-                    else:
-                        break  # 20000개 데이터 수집 후 종료
-
-                    # 데이터 기록
-                    record = {
-                        "Measurement Count": measurement_count,
-                        "IMU_MODE": imu_mode,
-                        "Accel_X": values[0],
-                        "Accel_Y": values[1],
-                        "Accel_Z": values[2],
-                        "Gyro_X": values[3],
-                        "Gyro_Y": values[4],
-                        "Gyro_Z": values[5],
-                        "X_DEL_ANG": x_del_ang_with_error,
-                        "Y_DEL_ANG": y_del_ang_with_error,
-                        "Z_DEL_ANG": z_del_ang_with_error,
-                        "ROLL": values[6],
-                        "PITCH": values[7],
-                        "HEADING": values[8]
-                    }
-                    data_records.append(record)
-
-                    # 실시간 결과 출력
-                    print(f"Measurement: {measurement_count}, IMU_MODE: {imu_mode}, "
-                          f"X_DEL_ANG: {x_del_ang_with_error:.8f}, Y_DEL_ANG: {y_del_ang_with_error:.8f}, Z_DEL_ANG: {z_del_ang_with_error:.8f}, "
-                          f"Data: {values}")
-
-            except ValueError:
-                # 데이터 파싱 오류 시 무시
-                continue
-except KeyboardInterrupt:
-    print("측정이 중단되었습니다.")
-
-# 데이터를 CSV로 저장
-print("데이터 저장 중...")
-df = pd.DataFrame(data_records)
-df.to_csv("sensor_data_20000_with_error.csv", index=False, encoding='utf-8', float_format="%.8f")
-print("데이터가 'sensor_data_with_error.csv'로 UTF-8 인코딩 및 소수점 8자리로 저장되었습니다.")
+if __name__ == '__main__':
+    # Flask 서버 실행
+    app.run(host='0.0.0.0', port=5000)
