@@ -1,6 +1,7 @@
 import time
 import board
 import busio
+import csv
 from adafruit_lsm303 import LSM303
 
 # I²C 설정
@@ -47,20 +48,40 @@ def read_gyro_data(i2c, addr):
 # L3GD20 초기화
 init_gyro(i2c, L3GD20_ADDR)
 
-# 데이터 측정
+# 데이터 측정 및 CSV 저장
+filename = "imu_data.csv"
+data = []
+
 try:
-    while True:
+    for i in range(20000):
         # LSM303 가속도 데이터 읽기
         accel_x, accel_y, accel_z = lsm303.acceleration
 
         # L3GD20 자이로 데이터 읽기
         gyro_x, gyro_y, gyro_z = read_gyro_data(i2c, L3GD20_ADDR)
 
-        # 데이터 출력
-        print(f"Accel: X={accel_x:.2f}, Y={accel_y:.2f}, Z={accel_z:.2f}, Gyro:  X={gyro_x}, Y={gyro_y}, Z={gyro_z}")
-        
-        
-        # 1초 대기
-        time.sleep(1)
+        # IMU_MODE 설정
+        imu_mode = 0 if i < 9500 else 8
+
+        # 데이터 저장
+        data.append([accel_x, accel_y, accel_z, gyro_x, gyro_y, gyro_z, imu_mode])
+
+        # 중간 로그 출력
+        if i % 1000 == 0:
+            print(f"Progress: {i}/20000 samples collected")
+
+        # 0.01초 대기
+        time.sleep(0.01)
+
+    # CSV 파일로 저장
+    with open(filename, "w", newline="") as csvfile:
+        csvwriter = csv.writer(csvfile)
+        # 헤더 작성
+        csvwriter.writerow(["Accel_X", "Accel_Y", "Accel_Z", "Gyro_X", "Gyro_Y", "Gyro_Z", "IMU_MODE"])
+        # 데이터 작성
+        csvwriter.writerows(data)
+
+    print(f"데이터가 {filename} 파일에 저장되었습니다.")
+
 except KeyboardInterrupt:
     print("측정을 종료합니다.")
