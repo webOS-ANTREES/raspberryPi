@@ -4,7 +4,7 @@ import os
 app = Flask(__name__)
 
 # CSV 파일이 저장된 폴더 경로
-CSV_FOLDER = "/path/to/your/csv_folder"  # 실제 CSV 파일 경로로 변경하세요
+CSV_FOLDER = "/home/pi/Documents/csv_files"  # 실제 CSV 파일 경로로 변경하세요
 
 @app.route('/list_csv', methods=['GET'])
 def list_csv_files():
