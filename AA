@@ -1,87 +1,105 @@
+import serial
 import time
-import board
-import busio
-import csv
-from adafruit_lsm303 import LSM303
+import pandas as pd
 
-# I²C 설정
-i2c = busio.I2C(board.SCL, board.SDA)
+# 시리얼 포트 설정
+SERIAL_PORT = '/dev/ttyUSB0'
+BAUD_RATE = 115200
+ser = serial.Serial(SERIAL_PORT, baudrate=BAUD_RATE, timeout=1)
 
-# L3GD20 주소와 레지스터
-L3GD20_ADDR = 0x69
-CTRL_REG1 = 0x20
-CTRL_REG4 = 0x23
-OUT_X_L = 0x28
-OUT_X_H = 0x29
-OUT_Y_L = 0x2A
-OUT_Y_H = 0x2B
-OUT_Z_L = 0x2C
-OUT_Z_H = 0x2D
+# 초기값
+measurement_count = 0  # 측정 횟수
+x_del_ang, y_del_ang, z_del_ang = 0.0, 0.0, 0.0  # 각도 변화량 초기화
+x_error, y_error, z_error = 0.0, 0.0, 0.0  # 누적 오차 초기화
+error_factor = 0.0001  # 누적 오차 비율
+previous_time = time.time()  # 이전 시간 기록
 
-# LSM303 초기화
-lsm303 = LSM303(i2c)
+# 데이터 저장 리스트
+data_records = []
 
-# L3GD20 초기화
-def init_gyro(i2c, addr):
-    i2c.writeto(addr, bytes([CTRL_REG1, 0x0F]))  # Normal mode, all axes enabled
-    i2c.writeto(addr, bytes([CTRL_REG4, 0x00]))  # ±250 dps (default)
+def send_command(command):
+    """센서 명령 전송 및 응답 읽기"""
+    ser.write((command + '\n').encode())
+    time.sleep(0.1)  # 센서 응답 대기
+    response = ser.readline().decode().strip()
+    return response
 
-# Signed Integer 변환
-def convert_to_signed(value):
-    if value & 0x8000:
-        return value - 0x10000
-    return value
+# 센서 설정
+print("센서 초기화 중...")
+print(send_command('cmd=5'))  # Euler 각도를 0으로 리셋
+print(send_command('ss=7'))  # 가속도, 각속도, 각도 데이터 설정
+print(send_command('sp=10'))  # 10ms(0.01초) 주기 데이터 전송
 
-# 레지스터 읽기
-def read_register(i2c, addr, reg):
-    result = bytearray(1)
-    i2c.writeto_then_readfrom(addr, bytes([reg]), result)
-    return result[0]
-
-# L3GD20 센서 데이터 읽기
-def read_gyro_data(i2c, addr):
-    x = convert_to_signed((read_register(i2c, addr, OUT_X_H) << 8) | read_register(i2c, addr, OUT_X_L))
-    y = convert_to_signed((read_register(i2c, addr, OUT_Y_H) << 8) | read_register(i2c, addr, OUT_Y_L))
-    z = convert_to_signed((read_register(i2c, addr, OUT_Z_H) << 8) | read_register(i2c, addr, OUT_Z_L))
-    return x, y, z
-
-# L3GD20 초기화
-init_gyro(i2c, L3GD20_ADDR)
-
-# 데이터 측정 및 CSV 저장
-filename = "imu_data.csv"
-data = []
-
+# 데이터 읽기 루프
 try:
-    for i in range(20000):
-        # LSM303 가속도 데이터 읽기
-        accel_x, accel_y, accel_z = lsm303.acceleration
+    while True:
+        data = ser.readline().decode().strip()
+        current_time = time.time()
+        dt = current_time - previous_time  # 시간 간격 계산
+        previous_time = current_time
 
-        # L3GD20 자이로 데이터 읽기
-        gyro_x, gyro_y, gyro_z = read_gyro_data(i2c, L3GD20_ADDR)
+        if data:
+            try:
+                # 데이터를 공백으로 분리하여 값 추출
+                values = list(map(float, data.split()))
+                if len(values) == 9:  # 센서 데이터가 9개 값으로 구성된 경우
+                    measurement_count += 1
 
-        # IMU_MODE 설정
-        imu_mode = 0 if i < 9500 else 8
+                    # 각속도 적분 (각도 변화량 계산)
+                    x_del_ang += values[3] * dt  # Gyro_X 적분
+                    y_del_ang += values[4] * dt  # Gyro_Y 적분
+                    z_del_ang += values[5] * dt  # Gyro_Z 적분
 
-        # 데이터 저장
-        data.append([accel_x, accel_y, accel_z, gyro_x, gyro_y, gyro_z, imu_mode])
+                    # 누적 오차 계산
+                    x_error += error_factor * values[3]
+                    y_error += error_factor * values[4]
+                    z_error += error_factor * values[5]
 
-        # 중간 로그 출력
-        if i % 1000 == 0:
-            print(f"Progress: {i}/20000 samples collected")
+                    # 누적 오차 반영
+                    x_del_ang_with_error = x_del_ang + x_error
+                    y_del_ang_with_error = y_del_ang + y_error
+                    z_del_ang_with_error = z_del_ang + z_error
 
-        # 0.01초 대기
-        time.sleep(0.01)
+                    # IMU_MODE 값 결정
+                    if measurement_count <= 9500:
+                        imu_mode = 0
+                    elif measurement_count <= 20000:
+                        imu_mode = 8
+                    else:
+                        break  # 20000개 데이터 수집 후 종료
 
-    # CSV 파일로 저장
-    with open(filename, "w", newline="") as csvfile:
-        csvwriter = csv.writer(csvfile)
-        # 헤더 작성
-        csvwriter.writerow(["Accel_X", "Accel_Y", "Accel_Z", "Gyro_X", "Gyro_Y", "Gyro_Z", "IMU_MODE"])
-        # 데이터 작성
-        csvwriter.writerows(data)
+                    # 데이터 기록
+                    record = {
+                        "Measurement Count": measurement_count,
+                        "IMU_MODE": imu_mode,
+                        "Accel_X": values[0],
+                        "Accel_Y": values[1],
+                        "Accel_Z": values[2],
+                        "Gyro_X": values[3],
+                        "Gyro_Y": values[4],
+                        "Gyro_Z": values[5],
+                        "X_DEL_ANG": x_del_ang_with_error,
+                        "Y_DEL_ANG": y_del_ang_with_error,
+                        "Z_DEL_ANG": z_del_ang_with_error,
+                        "ROLL": values[6],
+                        "PITCH": values[7],
+                        "HEADING": values[8]
+                    }
+                    data_records.append(record)
 
-    print(f"데이터가 {filename} 파일에 저장되었습니다.")
+                    # 실시간 결과 출력
+                    print(f"Measurement: {measurement_count}, IMU_MODE: {imu_mode}, "
+                          f"X_DEL_ANG: {x_del_ang_with_error:.8f}, Y_DEL_ANG: {y_del_ang_with_error:.8f}, Z_DEL_ANG: {z_del_ang_with_error:.8f}, "
+                          f"Data: {values}")
 
+            except ValueError:
+                # 데이터 파싱 오류 시 무시
+                continue
 except KeyboardInterrupt:
-    print("측정을 종료합니다.")
+    print("측정이 중단되었습니다.")
+
+# 데이터를 CSV로 저장
+print("데이터 저장 중...")
+df = pd.DataFrame(data_records)
+df.to_csv("/home/pi/Documents/csv_files/sensor_data_20000_with_error.csv", index=False, encoding='utf-8', float_format="%.8f")
+print("데이터가 'sensor_data_with_error.csv'로 UTF-8 인코딩 및 소수점 8자리로 저장되었습니다.")
